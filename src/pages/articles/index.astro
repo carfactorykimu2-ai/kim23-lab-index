@@ -1,0 +1,27 @@
+---
+import { getCollection } from 'astro:content';
+
+const articles = (await getCollection('articles')).sort((a, b) => {
+  const da = a.data.date?.getTime() ?? 0;
+  const db = b.data.date?.getTime() ?? 0;
+  return db - da;
+});
+---
+<html lang="ja">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width" />
+		<title>Articles</title>
+	</head>
+	<body>
+		<h1>Articles</h1>
+		<ul>
+			{articles.map((article) => (
+				<li>
+					<a href={`/articles/${article.id}/`}>{article.data.title}</a>
+					<span> — {article.data.car} / {article.data.ecu}</span>
+				</li>
+			))}
+		</ul>
+	</body>
+</html>

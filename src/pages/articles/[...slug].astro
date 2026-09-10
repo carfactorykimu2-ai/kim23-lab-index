@@ -1,0 +1,56 @@
+---
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+	const articles = await getCollection('articles');
+	return articles.map((article) => ({
+		params: { slug: article.id },
+		props: { article },
+	}));
+}
+
+const { article } = Astro.props;
+const { data } = article;
+const { Content } = await render(article);
+
+const allArticles = await getCollection('articles');
+const relatedArticles = allArticles.filter((a) => data.related.includes(a.id));
+---
+<html lang="ja">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width" />
+		<title>{data.title}</title>
+	</head>
+	<body>
+		<p><a href="/articles/">&larr; Articles</a></p>
+		<h1>{data.title}</h1>
+		<dl>
+			<dt>Car</dt>
+			<dd>{data.car}</dd>
+			<dt>ECU</dt>
+			<dd>{data.ecu}</dd>
+			<dt>Purpose</dt>
+			<dd>{data.purpose}</dd>
+			{data.note_url && (
+				<>
+					<dt>Note</dt>
+					<dd><a href={data.note_url} target="_blank" rel="noopener noreferrer">{data.note_url}</a></dd>
+				</>
+			)}
+		</dl>
+
+		<Content />
+
+		{relatedArticles.length > 0 && (
+			<>
+				<h2>Related</h2>
+				<ul>
+					{relatedArticles.map((r) => (
+						<li><a href={`/articles/${r.id}/`}>{r.data.title}</a></li>
+					))}
+				</ul>
+			</>
+		)}
+	</body>
+</html>
