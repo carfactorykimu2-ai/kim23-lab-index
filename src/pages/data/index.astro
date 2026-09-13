@@ -1,0 +1,21 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Data" description="CAN/ECUデータなど、Toolsページの分析対象となるサンプルデータの置き場（拡張用）。">
+	<h1>Data</h1>
+	<p class="muted">
+		CANログやECUのセンサ校正データなど、<a href="../tools/">Tools</a> のツールが読み込むサンプルデータをここに置いていきます。
+		現時点ではまだサンプルは未追加です。
+	</p>
+
+	<h2>配置ルール（開発メモ）</h2>
+	<ul>
+		<li>ブラウザから読み込む公開用データ: <code>public/data/&lt;category&gt;/*.csv</code> （ビルド後 <code>/data/&lt;category&gt;/*.csv</code> として配信）</li>
+		<li>記事インポート用など非公開のソースデータ: リポジトリ直下の <code>data/</code>（サイトには公開されません）</li>
+	</ul>
+
+	<p class="muted">
+		現在 <code>data/</code> には note.com 記事メタデータのExcel（<code>note_articles_metadata.xlsx</code>）があり、
+		<code>scripts/import_note_articles.py</code> で <a href="../articles/">Articles</a> の note.com 連携記事インデックスの生成に使っています。
+	</p>
+</Base>

@@ -1,18 +1,52 @@
 ---
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import { slugifyMagazine } from '../lib/slug';
 
+const base = import.meta.env.BASE_URL;
+const articles = await getCollection('articles');
+
+const sorted = [...articles].sort((a, b) => {
+	const da = a.data.date?.getTime() ?? 0;
+	const db = b.data.date?.getTime() ?? 0;
+	return db - da;
+});
+const latest = sorted.slice(0, 8);
+
+const magazineCounts = new Map<string, number>();
+for (const a of articles) {
+	for (const m of a.data.magazine) {
+		magazineCounts.set(m, (magazineCounts.get(m) ?? 0) + 1);
+	}
+}
+const topMagazines = [...magazineCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
 ---
+<Base title="Home" description="ECU/CANチューニングの知見を記事・マガジン単位で整理し、全文検索できるインデックスサイト。">
+	<h1>kim23-lab-index</h1>
+	<p class="muted">ECUフルコン化・CAN解析・車両データ計測に関する記事を、マガジン別に整理し、メタデータから横断検索できるインデックスサイトです。記事本文は <a href={`${base}note/`}>note.com</a> 上で公開しています。</p>
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>kim23-lab-index</title>
-	</head>
-	<body>
-		<h1>kim23-lab-index</h1>
-		<p><a href="/articles/">Articles</a></p>
-	</body>
-</html>
+	<p>
+		<a class="chip" href={`${base}magazines/`}>📚 Magazines ({magazineCounts.size})</a>
+		<a class="chip" href={`${base}articles/`}>📄 Articles ({articles.length})</a>
+		<a class="chip" href={`${base}search/`}>🔍 Search</a>
+		<a class="chip" href={`${base}tools/`}>🛠 Tools</a>
+		<a class="chip" href={`${base}data/`}>📊 Data</a>
+	</p>
+
+	<h2>よく読まれているマガジン</h2>
+	<ul>
+		{topMagazines.map(([magazine, count]) => (
+			<li><a href={`${base}magazines/${slugifyMagazine(magazine)}/`}>{magazine}</a> <span class="muted">({count}記事)</span></li>
+		))}
+	</ul>
+
+	<h2>最新の記事</h2>
+	<ul>
+		{latest.map((article) => (
+			<li>
+				<a href={`${base}articles/${article.id}/`}>{article.data.title}</a>
+				{article.data.date && <span class="muted"> — {article.data.date.toISOString().slice(0, 10)}</span>}
+			</li>
+		))}
+	</ul>
+</Base>

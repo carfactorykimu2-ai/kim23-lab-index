@@ -1,0 +1,40 @@
+---
+import Base from '../../layouts/Base.astro';
+
+const plannedTools = [
+	{
+		title: 'CAN解析ビューア',
+		description: 'CANログ(.log/.csv)を読み込み、IDごとの信号を時系列に可視化するツール。',
+		status: '計画中',
+	},
+	{
+		title: 'ECU信号ダッシュボード',
+		description: 'センサ電圧-物理量の校正特性など、記事に紐づく実測データをグラフ表示するツール。',
+		status: '計画中',
+	},
+	{
+		title: 'CSVグラフビューア',
+		description: 'ロガーCSVをブラウザにドラッグ＆ドロップして任意チャンネルをグラフ化するツール。',
+		status: '計画中',
+	},
+];
+---
+<Base title="Tools" description="CAN解析・ECU信号・CSVグラフなど、ブラウザ上で動く計算・分析ツールの置き場（準備中）。">
+	<h1>Tools</h1>
+	<p class="muted">CAN解析・ECU信号・CSVグラフなど、HTML/JSベースの計算・分析ツールをここに追加していく予定です。現時点ではまだ雛形のみで、ツール本体は未実装です。</p>
+
+	<ul>
+		{plannedTools.map((tool) => (
+			<li>
+				<strong>{tool.title}</strong> <span class="chip">{tool.status}</span>
+				<div class="muted">{tool.description}</div>
+			</li>
+		))}
+	</ul>
+
+	<h2>追加方法（開発メモ）</h2>
+	<p class="muted">
+		個々のツールは <code>src/pages/tools/&lt;tool-name&gt;.astro</code>（または <code>.astro</code> + クライアントスクリプト）として追加し、このページの一覧にリンクを足す想定です。
+		入力データは <a href="../data/">Data</a> 配下のサンプルを読み込む形を基本とします。
+	</p>
+</Base>

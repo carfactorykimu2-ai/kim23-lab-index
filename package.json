@@ -9,10 +9,12 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "import:note": "python scripts/import_note_articles.py"
   },
   "dependencies": {
-    "astro": "^7.2.9"
+    "astro": "^7.2.9",
+    "fuse.js": "^7.5.0"
   },
   "allowScripts": {
     "esbuild": true

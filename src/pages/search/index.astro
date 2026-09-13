@@ -1,0 +1,173 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+
+const articles = await getCollection('articles');
+
+function countBy(values: string[]): { name: string; count: number }[] {
+	const counts = new Map<string, number>();
+	for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+	return [...counts.entries()]
+		.map(([name, count]) => ({ name, count }))
+		.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ja'));
+}
+
+const magazineOptions = countBy(articles.flatMap((a) => a.data.magazine));
+const carOptions = countBy(articles.map((a) => a.data.car_model).filter((v): v is string => !!v));
+const ecuOptions = countBy(articles.flatMap((a) => a.data.ecu));
+const topTags = countBy(articles.flatMap((a) => a.data.tags)).slice(0, 40);
+---
+<Base title="Search" description="全文検索＋メタデータ(マガジン・タグ・車種・ECU)による記事検索。">
+	<h1>Search</h1>
+	<p class="muted">タイトル・概要・タグなどを対象にした全文検索と、マガジン/車種/ECUでの絞り込みができます。</p>
+
+	<div id="search-form">
+		<input id="q" type="search" placeholder="キーワードで検索（例: CAN, K6A, ビギーバック）" style="width:100%;padding:0.6rem;font-size:1rem;" />
+
+		<div style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-top:0.75rem;">
+			<label>
+				Magazine
+				<select id="magazine-filter">
+					<option value="">すべて</option>
+					{magazineOptions.map((m) => <option value={m.name}>{m.name} ({m.count})</option>)}
+				</select>
+			</label>
+			<label>
+				Car
+				<select id="car-filter">
+					<option value="">すべて</option>
+					{carOptions.map((c) => <option value={c.name}>{c.name} ({c.count})</option>)}
+				</select>
+			</label>
+			<label>
+				ECU
+				<select id="ecu-filter">
+					<option value="">すべて</option>
+					{ecuOptions.map((e) => <option value={e.name}>{e.name} ({e.count})</option>)}
+				</select>
+			</label>
+			<button id="reset" type="button">条件をクリア</button>
+		</div>
+
+		<p style="margin-top:0.75rem;">
+			{topTags.map((t) => (
+				<button class="tag-chip chip" type="button" data-tag={t.name} style="border:none;cursor:pointer;">#{t.name}</button>
+			))}
+		</p>
+	</div>
+
+	<p id="result-count" class="muted"></p>
+	<ul id="results"></ul>
+
+	<script define:vars={{ base: import.meta.env.BASE_URL }}>
+		window.__SEARCH_BASE__ = base;
+	</script>
+	<script>
+		import Fuse from 'fuse.js';
+
+		type SearchDoc = {
+			id: string;
+			title: string;
+			summary: string;
+			date: string;
+			magazine: string[];
+			tags: string[];
+			category: string;
+			car_model: string;
+			ecu: string[];
+			device: string;
+			can_id: string;
+		};
+
+		const base = (window as any).__SEARCH_BASE__ as string;
+
+		const qInput = document.querySelector<HTMLInputElement>('#q')!;
+		const magazineSelect = document.querySelector<HTMLSelectElement>('#magazine-filter')!;
+		const carSelect = document.querySelector<HTMLSelectElement>('#car-filter')!;
+		const ecuSelect = document.querySelector<HTMLSelectElement>('#ecu-filter')!;
+		const resetButton = document.querySelector<HTMLButtonElement>('#reset')!;
+		const resultsEl = document.querySelector<HTMLUListElement>('#results')!;
+		const countEl = document.querySelector<HTMLParagraphElement>('#result-count')!;
+		const tagChips = document.querySelectorAll<HTMLButtonElement>('.tag-chip');
+
+		let docs: SearchDoc[] = [];
+		let fuse: Fuse<SearchDoc> | null = null;
+
+		async function init() {
+			const res = await fetch(`${base}search-index.json`);
+			docs = await res.json();
+			fuse = new Fuse(docs, {
+				keys: [
+					{ name: 'title', weight: 3 },
+					{ name: 'summary', weight: 2 },
+					{ name: 'tags', weight: 2 },
+					{ name: 'magazine', weight: 1.5 },
+					{ name: 'car_model', weight: 1 },
+					{ name: 'ecu', weight: 1 },
+					{ name: 'category', weight: 0.5 },
+				],
+				threshold: 0.35,
+				ignoreLocation: true,
+			});
+
+			const params = new URLSearchParams(location.search);
+			const q = params.get('q');
+			if (q) qInput.value = q;
+
+			render();
+		}
+
+		function render() {
+			const query = qInput.value.trim();
+			const baseResults: SearchDoc[] = query && fuse ? fuse.search(query).map((r) => r.item) : docs;
+
+			const magazine = magazineSelect.value;
+			const car = carSelect.value;
+			const ecu = ecuSelect.value;
+
+			const filtered = baseResults.filter((d) => {
+				if (magazine && !d.magazine.includes(magazine)) return false;
+				if (car && d.car_model !== car) return false;
+				if (ecu && !d.ecu.includes(ecu)) return false;
+				return true;
+			});
+
+			countEl.textContent = `${filtered.length}件`;
+			resultsEl.innerHTML = '';
+			for (const d of filtered.slice(0, 200)) {
+				const li = document.createElement('li');
+				const a = document.createElement('a');
+				a.href = `${base}articles/${d.id}/`;
+				a.textContent = d.title;
+				li.appendChild(a);
+
+				const meta = document.createElement('div');
+				meta.className = 'muted';
+				meta.textContent = [d.date, d.car_model, d.ecu.join(' / ')].filter(Boolean).join(' ・ ');
+				li.appendChild(meta);
+
+				resultsEl.appendChild(li);
+			}
+		}
+
+		qInput.addEventListener('input', render);
+		magazineSelect.addEventListener('change', render);
+		carSelect.addEventListener('change', render);
+		ecuSelect.addEventListener('change', render);
+		resetButton.addEventListener('click', () => {
+			qInput.value = '';
+			magazineSelect.value = '';
+			carSelect.value = '';
+			ecuSelect.value = '';
+			render();
+		});
+		tagChips.forEach((chip) => {
+			chip.addEventListener('click', () => {
+				qInput.value = chip.dataset.tag ?? '';
+				render();
+			});
+		});
+
+		init();
+	</script>
+</Base>

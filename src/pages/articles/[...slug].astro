@@ -1,5 +1,7 @@
 ---
 import { getCollection, render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { slugifyMagazine } from '../../lib/slug';
 
 export async function getStaticPaths() {
 	const articles = await getCollection('articles');
@@ -13,44 +15,83 @@ const { article } = Astro.props;
 const { data } = article;
 const { Content } = await render(article);
 
+const base = import.meta.env.BASE_URL;
 const allArticles = await getCollection('articles');
 const relatedArticles = allArticles.filter((a) => data.related.includes(a.id));
 ---
-<html lang="ja">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width" />
-		<title>{data.title}</title>
-	</head>
-	<body>
-		<p><a href="/articles/">&larr; Articles</a></p>
-		<h1>{data.title}</h1>
-		<dl>
-			<dt>Car</dt>
-			<dd>{data.car}</dd>
-			<dt>ECU</dt>
-			<dd>{data.ecu}</dd>
-			<dt>Purpose</dt>
-			<dd>{data.purpose}</dd>
-			{data.note_url && (
-				<>
-					<dt>Note</dt>
-					<dd><a href={data.note_url} target="_blank" rel="noopener noreferrer">{data.note_url}</a></dd>
-				</>
-			)}
-		</dl>
+<Base title={data.title} description={data.summary}>
+	<p><a href={`${base}articles/`}>&larr; Articles</a></p>
+	<h1>{data.title}</h1>
 
-		<Content />
+	<p>
+		{data.magazine.map((m) => (
+			<a class="chip" href={`${base}magazines/${slugifyMagazine(m)}/`}>{m}</a>
+		))}
+	</p>
 
-		{relatedArticles.length > 0 && (
+	<dl class="meta">
+		{data.date && (
 			<>
-				<h2>Related</h2>
-				<ul>
-					{relatedArticles.map((r) => (
-						<li><a href={`/articles/${r.id}/`}>{r.data.title}</a></li>
-					))}
-				</ul>
+				<dt>Date</dt>
+				<dd>{data.date.toISOString().slice(0, 10)}</dd>
 			</>
 		)}
-	</body>
-</html>
+		{data.car_model && (
+			<>
+				<dt>Car</dt>
+				<dd>{data.car_model}</dd>
+			</>
+		)}
+		{data.ecu.length > 0 && (
+			<>
+				<dt>ECU</dt>
+				<dd>{data.ecu.join(' / ')}</dd>
+			</>
+		)}
+		{data.device && (
+			<>
+				<dt>Device</dt>
+				<dd>{data.device}</dd>
+			</>
+		)}
+		{data.can_id && (
+			<>
+				<dt>CAN ID</dt>
+				<dd><code>{data.can_id}</code></dd>
+			</>
+		)}
+		{data.category && (
+			<>
+				<dt>Category</dt>
+				<dd>{data.category}</dd>
+			</>
+		)}
+		{data.step && (
+			<>
+				<dt>Step</dt>
+				<dd>{data.step}</dd>
+			</>
+		)}
+	</dl>
+
+	{data.tags.length > 0 && (
+		<p>
+			{data.tags.map((t) => (
+				<a class="chip" href={`${base}search/?q=${encodeURIComponent(t)}`}>#{t}</a>
+			))}
+		</p>
+	)}
+
+	<Content />
+
+	{relatedArticles.length > 0 && (
+		<>
+			<h2>Related</h2>
+			<ul>
+				{relatedArticles.map((r) => (
+					<li><a href={`${base}articles/${r.id}/`}>{r.data.title}</a></li>
+				))}
+			</ul>
+		</>
+	)}
+</Base>
