@@ -1,0 +1,215 @@
+---
+import Base from '../layouts/Base.astro';
+
+interface LinkItem {
+	name: string;
+	url: string;
+	description: string;
+}
+
+interface Category {
+	title: string;
+	items: LinkItem[];
+}
+
+const categories: Category[] = [
+	{
+		title: 'フルコン系メーカー',
+		items: [
+			{
+				name: 'Bosch Motorsport',
+				url: 'https://www.bosch-motorsport.com/',
+				description: 'モータースポーツ向けECU・センサ・配線部品を手掛けるBoschのレーシング部門。',
+			},
+			{
+				name: 'Haltech',
+				url: 'https://www.haltech.com/',
+				description: 'スタンドアロンECUとPCログ環境を提供する豪州メーカー。フルコン化事例で定番。',
+			},
+			{
+				name: 'MoTeC',
+				url: 'https://www.motec.com.au/',
+				description: 'モータースポーツ用ECU・ロガー・ダッシュを手掛ける老舗豪州メーカー。',
+			},
+			{
+				name: 'Link ECU',
+				url: 'https://www.linkecu.com/',
+				description: 'PCLinkソフトでのセッティングが特徴のニュージーランド発フルコンECU。',
+			},
+			{
+				name: 'ECUMaster',
+				url: 'https://www.ecumaster.com/',
+				description: 'EMU／PMU／ADUなど電装統合を強みとするポーランドのECUメーカー。',
+			},
+			{
+				name: 'AEM Electronics',
+				url: 'https://www.aemelectronics.com/',
+				description: 'Infinityシリーズ等のスタンドアロンECUやダッシュを展開する米国メーカー。',
+			},
+			{
+				name: 'Syvecs',
+				url: 'https://www.syvecs.com/',
+				description: 'モータースポーツ実績豊富な英国のレース用ECUメーカー。',
+			},
+			{
+				name: 'Emtron',
+				url: 'https://www.emtron.com.au/',
+				description: '堅牢な設計・高い拡張性で知られる豪州のスタンドアロンECUメーカー。',
+			},
+			{
+				name: 'FuelTech',
+				url: 'https://www.fueltech.net/',
+				description: 'ドラッグレース分野で強いブラジル発のECU・ブースト制御メーカー。',
+			},
+		],
+	},
+	{
+		title: '純正ECUメーカー',
+		items: [
+			{
+				name: 'Denso',
+				url: 'https://www.denso.com/global/en/',
+				description: '純正ECU・インジェクター等を製造する国内最大手クラスのTier1サプライヤー。',
+			},
+			{
+				name: 'Continental Automotive',
+				url: 'https://www.continental-automotive.com/',
+				description: 'パワートレイン制御ユニットを含む車載電子機器を手掛ける独メガサプライヤー。',
+			},
+			{
+				name: 'Delphi Technologies',
+				url: 'https://www.delphi.com/',
+				description: '燃料噴射システムやECUで知られる自動車部品メーカー（現BorgWarner傘下）。',
+			},
+			{
+				name: 'Marelli',
+				url: 'https://www.marelli.com/',
+				description: '旧Magneti Marelli。点火・噴射制御システムを手掛けるイタリア系サプライヤー。',
+			},
+			{
+				name: 'Hitachi Astemo',
+				url: 'https://www.hitachiastemo.com/',
+				description: '日立系の車両制御ユニット・センサ類を手掛けるTier1サプライヤー。',
+			},
+			{
+				name: 'Mitsubishi Electric',
+				url: 'https://www.mitsubishielectric.com/',
+				description: 'ECUや点火系部品を含む自動車機器を手掛ける国内電機大手。',
+			},
+		],
+	},
+	{
+		title: 'CAN規格・車載ネットワーク',
+		items: [
+			{
+				name: 'CAN in Automation (CiA)',
+				url: 'https://www.can-cia.org/',
+				description: 'CAN／CANopenの標準化・普及を進める国際的な非営利業界団体。',
+			},
+			{
+				name: 'ISO 11898',
+				url: 'https://en.wikipedia.org/wiki/CAN_bus',
+				description: 'CANバスの物理層・データリンク層を規定する基礎規格（概要はWikipedia）。',
+			},
+			{
+				name: 'SAE J1939',
+				url: 'https://en.wikipedia.org/wiki/SAE_J1939',
+				description: '商用車・産業機械で使われる、CANをベースにした上位プロトコル規格。',
+			},
+			{
+				name: 'OBD-II / SAE J1979',
+				url: 'https://en.wikipedia.org/wiki/On-board_diagnostics',
+				description: '乗用車の故障診断インターフェース規格。ECU通信の基礎知識として。',
+			},
+			{
+				name: 'UDS（ISO 14229）',
+				url: 'https://en.wikipedia.org/wiki/Unified_Diagnostic_Services',
+				description: '診断サービスの標準プロトコル。ECUのリプロやダイアグ解析で登場する。',
+			},
+			{
+				name: 'Automotive Ethernet',
+				url: 'https://en.wikipedia.org/wiki/Automotive_Ethernet',
+				description: '大容量データ向けに車載採用が進むEthernet規格（100BASE-T1等）。',
+			},
+			{
+				name: 'LIN Consortium',
+				url: 'https://en.wikipedia.org/wiki/Local_Interconnect_Network',
+				description: '低コスト・低速通信向けのLINバス規格に関する概要情報。',
+			},
+			{
+				name: 'FlexRay Consortium',
+				url: 'https://en.wikipedia.org/wiki/FlexRay',
+				description: '高速・高信頼性が求められる制御系向けに使われたFlexRay規格の概要。',
+			},
+		],
+	},
+];
+---
+<Base title="技術リンク集" description="ECU・フルコン・CAN解析・車載ネットワーク関連の主要メーカー・規格リンク集。">
+	<h1>技術リンク集</h1>
+	<p class="muted">
+		ECU・フルコン化・CAN解析・車載ネットワークに関する主要メーカーと規格のリンクをカテゴリ別にまとめています。
+		いずれも外部サイトへのリンクです。
+	</p>
+
+	{categories.map((category) => (
+		<section class="link-section">
+			<h2>{category.title}</h2>
+			<div class="link-grid">
+				{category.items.map((item) => (
+					<a class="link-card" href={item.url} target="_blank" rel="noopener noreferrer">
+						<h3>{item.name}</h3>
+						<p>{item.description}</p>
+						<span class="link-card-arrow">サイトを開く →</span>
+					</a>
+				))}
+			</div>
+		</section>
+	))}
+</Base>
+
+<style>
+	.link-section {
+		margin-bottom: 2.5rem;
+	}
+	.link-section h2 {
+		margin-bottom: 0.75rem;
+	}
+	.link-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+		gap: 1rem;
+	}
+	.link-card {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 1rem 1.1rem;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		background: var(--bg);
+		color: var(--fg);
+		text-decoration: none;
+		transition: border-color 0.15s ease, transform 0.15s ease;
+	}
+	.link-card:hover,
+	.link-card:focus-visible {
+		border-color: var(--accent);
+		transform: translateY(-2px);
+	}
+	.link-card h3 {
+		margin: 0;
+		font-size: 1rem;
+	}
+	.link-card p {
+		margin: 0;
+		font-size: 0.85rem;
+		line-height: 1.5;
+		color: var(--muted);
+		flex: 1;
+	}
+	.link-card-arrow {
+		font-size: 0.8rem;
+		color: var(--accent);
+	}
+</style>
