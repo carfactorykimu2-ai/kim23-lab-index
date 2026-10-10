@@ -1,0 +1,554 @@
+---
+import Base from '../../layouts/Base.astro';
+
+const base = import.meta.env.BASE_URL;
+const dutyPresets = [0, 10, 25, 50, 75, 100];
+---
+<Base wide title="PWMシミュレータ" description="PWM周波数とDutyを入力して、周期・ON時間の計算と時間波形をブラウザ上で確認できるツール。">
+	<p><a href={`${base}tools/`}>&larr; Tools</a></p>
+	<h1>PWMシミュレータ</h1>
+	<p class="muted">
+		PWM周波数とDutyを入力すると、周期・ON時間を計算して時間波形を描きます。
+		記事「<a href={`${base}articles/misc-624e06/`}>出力制御の基礎 PWM制御とは？</a>」で配布しているエクセル（PWM.xlsx）と同じ計算式です。
+	</p>
+
+	<div class="pwm-layout">
+	<section class="pwm-panel pwm-area-inputs" aria-label="入力">
+		<div class="pwm-field">
+			<label for="pwm-freq">PWM周波数 <span class="muted">[Hz]</span></label>
+			<div class="pwm-inputs">
+				<input id="pwm-freq" type="number" min="0.1" max="100000" step="any" value="100" inputmode="decimal" />
+				<input id="pwm-freq-range" type="range" min="1" max="1000" step="1" value="100" aria-label="PWM周波数スライダー" />
+			</div>
+		</div>
+		<div class="pwm-field">
+			<label for="pwm-duty">Duty <span class="muted">[%]</span></label>
+			<div class="pwm-inputs">
+				<input id="pwm-duty" type="number" min="0" max="100" step="any" value="50" inputmode="decimal" />
+				<input id="pwm-duty-range" type="range" min="0" max="100" step="1" value="50" aria-label="Dutyスライダー" />
+			</div>
+			<div class="pwm-presets">
+				{dutyPresets.map((d) => (
+					<button class="chip pwm-preset" type="button" data-duty={d}>{d}%</button>
+				))}
+			</div>
+		</div>
+		<div class="pwm-field">
+			<label for="pwm-volt">電源電圧 <span class="muted">[V]（平均電圧の計算用）</span></label>
+			<div class="pwm-inputs">
+				<input id="pwm-volt" type="number" min="0" step="any" value="12" inputmode="decimal" />
+			</div>
+		</div>
+		<p id="pwm-error" class="pwm-error" role="alert" hidden></p>
+	</section>
+
+	<section class="pwm-stats pwm-area-stats" aria-label="計算結果" aria-live="polite">
+		<div class="pwm-stat">
+			<div class="pwm-stat-label">周期 T = 1 / f</div>
+			<div class="pwm-stat-value" id="pwm-out-period">–</div>
+		</div>
+		<div class="pwm-stat">
+			<div class="pwm-stat-label">ON時間 = T × Duty / 100</div>
+			<div class="pwm-stat-value" id="pwm-out-on">–</div>
+		</div>
+		<div class="pwm-stat">
+			<div class="pwm-stat-label">OFF時間 = T − ON時間</div>
+			<div class="pwm-stat-value" id="pwm-out-off">–</div>
+		</div>
+		<div class="pwm-stat">
+			<div class="pwm-stat-label">平均出力（平均電圧）</div>
+			<div class="pwm-stat-value" id="pwm-out-avg">–</div>
+		</div>
+	</section>
+
+	<section class="pwm-panel pwm-area-settings" aria-label="グラフ設定">
+		<div class="pwm-settings">
+			<label>
+				波形の描き方
+				<select id="pwm-mode">
+					<option value="ideal">理想波形（エッジを正確に描く）</option>
+					<option value="excel">エクセルと同じ 0.1ms 刻み</option>
+				</select>
+			</label>
+			<label>
+				時間軸の表示範囲 [s]
+				<input id="pwm-tmax" type="number" min="0" step="0.01" value="0.03" inputmode="decimal" />
+			</label>
+			<label>
+				周期軸の表示範囲 [周期]
+				<input id="pwm-cmax" type="number" min="1" step="1" value="3" inputmode="decimal" />
+			</label>
+			<button id="pwm-fit" type="button">時間軸を3周期に合わせる</button>
+			<button id="pwm-reset" type="button">エクセルの初期値に戻す</button>
+		</div>
+		<p id="pwm-note" class="muted pwm-note" hidden></p>
+	</section>
+
+	<div class="pwm-area-charts">
+	<div class="pwm-legend" aria-hidden="true">
+		<span><i class="pwm-key pwm-key-on"></i>PWM ON（ONで1）</span>
+		<span><i class="pwm-key pwm-key-cycle"></i>PWM Cycle（周期の先頭マーカー）</span>
+		<span><i class="pwm-key pwm-key-avg"></i>平均出力</span>
+	</div>
+
+	<h2 class="pwm-chart-title">時間波形</h2>
+	<p class="muted pwm-caption">横軸: time [s]。エクセルの上側のグラフに相当します。</p>
+	<div class="pwm-chart" id="pwm-chart-time">
+		<svg role="img" aria-label="時間に対するPWM波形"></svg>
+		<div class="pwm-tip" hidden></div>
+	</div>
+
+	<h2 class="pwm-chart-title">周期で見た波形</h2>
+	<p class="muted pwm-caption">横軸: PWMCYCLE（= time ÷ 周期）。周波数を変えても1周期の中のON割合（Duty）だけで形が決まります。</p>
+	<div class="pwm-chart" id="pwm-chart-cycle">
+		<svg role="img" aria-label="周期数に対するPWM波形"></svg>
+		<div class="pwm-tip" hidden></div>
+	</div>
+	</div>
+	</div>
+
+	<h2>計算式</h2>
+	<p>各時刻 t について、次の順に計算しています（エクセルの列と同じ）。</p>
+	<table class="pwm-table pwm-formulas">
+		<thead>
+			<tr><th>項目</th><th>エクセルの式</th><th>意味</th></tr>
+		</thead>
+		<tbody>
+			<tr><td>周期 T</td><td><code>=1/周波数</code></td><td>1回のON/OFFにかかる時間 [s]</td></tr>
+			<tr><td>ON時間</td><td><code>=Duty/100*T</code></td><td>1周期のうちONしている時間 [s]</td></tr>
+			<tr><td>PWMCYCLE</td><td><code>=t/T</code></td><td>開始から何周期ぶん経過したか</td></tr>
+			<tr><td>周期内の時間</td><td><code>=MOD(t,T)</code></td><td>今の周期が始まってからの経過時間 [s]</td></tr>
+			<tr><td>PWM Cycle</td><td><code>=IF(MOD(t,T)&lt;T/100,2,0)</code></td><td>周期の先頭1%だけ2になる目印</td></tr>
+			<tr><td>PWM ON</td><td><code>=IF(MOD(t,T)&lt;ON時間,1,0)</code></td><td>周期内の時間がON時間より短ければON</td></tr>
+		</tbody>
+	</table>
+	<p class="muted">
+		タイマー（経過時間）を周期で割った余りとON時間を比べるだけなので、ECUのタイマーファンクション等で演算式によるDuty制御を組むときも同じ考え方が使えます。
+	</p>
+
+	<details class="pwm-details">
+		<summary>計算結果の表（0.1ms刻み・先頭 <span id="pwm-rows-count">300</span> 行）</summary>
+		<div class="pwm-table-wrap">
+			<table class="pwm-table" id="pwm-data">
+				<thead>
+					<tr><th>Time [s]</th><th>PWMCYCLE</th><th>周期内の時間 [s]</th><th>PWM Cycle</th><th>PWM ON</th></tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+	</details>
+
+	<script>
+		import { EXCEL_SAMPLES_PER_SEC, pwmParams, pwmSample } from '../../lib/pwm';
+
+		const DEFAULTS = { freq: 100, duty: 50, volt: 12, tmax: 0.03, cmax: 3 };
+		const MAX_IDEAL_CYCLES = 5000;
+		const MAX_SAMPLES = 20000;
+		const TABLE_ROWS = 300;
+		const Y_MAX = 2.2;
+		const SVG_NS = 'http://www.w3.org/2000/svg';
+
+		type Point = [number, number];
+		type Axis = 'time' | 'cycle';
+		interface Chart {
+			axis: Axis;
+			wrap: HTMLElement;
+			svg: SVGSVGElement;
+			tip: HTMLElement;
+			xmax: number;
+			left: number;
+			plotW: number;
+		}
+
+		const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+		const freqInput = el<HTMLInputElement>('pwm-freq');
+		const freqRange = el<HTMLInputElement>('pwm-freq-range');
+		const dutyInput = el<HTMLInputElement>('pwm-duty');
+		const dutyRange = el<HTMLInputElement>('pwm-duty-range');
+		const voltInput = el<HTMLInputElement>('pwm-volt');
+		const modeSelect = el<HTMLSelectElement>('pwm-mode');
+		const tmaxInput = el<HTMLInputElement>('pwm-tmax');
+		const cmaxInput = el<HTMLInputElement>('pwm-cmax');
+		const errorEl = el<HTMLParagraphElement>('pwm-error');
+		const noteEl = el<HTMLParagraphElement>('pwm-note');
+		const tableBody = document.querySelector<HTMLTableSectionElement>('#pwm-data tbody')!;
+
+		function makeChart(id: string, axis: Axis): Chart {
+			const wrap = el<HTMLElement>(id);
+			return {
+				axis,
+				wrap,
+				svg: wrap.querySelector('svg')!,
+				tip: wrap.querySelector<HTMLElement>('.pwm-tip')!,
+				xmax: 1,
+				left: 0,
+				plotW: 1,
+			};
+		}
+		const charts = [makeChart('pwm-chart-time', 'time'), makeChart('pwm-chart-cycle', 'cycle')];
+
+		let state = { freq: DEFAULTS.freq, duty: DEFAULTS.duty, volt: DEFAULTS.volt, excelMode: false };
+
+		/** 表示用に有効数字6桁へ丸める（0.1+0.2 のような誤差を見せない） */
+		function fmt(v: number, digits = 6): string {
+			if (!Number.isFinite(v)) return '–';
+			return String(Number(v.toPrecision(digits)));
+		}
+
+		function fmtSeconds(sec: number): string {
+			const abs = Math.abs(sec);
+			if (abs !== 0 && abs < 1e-3) return `${fmt(sec)} s（${fmt(sec * 1e6)} µs）`;
+			if (abs < 1) return `${fmt(sec)} s（${fmt(sec * 1e3)} ms）`;
+			return `${fmt(sec)} s`;
+		}
+
+		function niceStep(range: number, targetTicks: number): number {
+			const raw = range / targetTicks;
+			const pow = 10 ** Math.floor(Math.log10(raw));
+			const n = raw / pow;
+			return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * pow;
+		}
+
+		/** 理想波形の折れ線。x は周期数単位 */
+		function idealSeries(cycles: number, duty: number): { on: Point[]; marker: Point[] } {
+			const d = Math.min(Math.max(duty, 0), 100) / 100;
+			const on: Point[] = [];
+			const marker: Point[] = [];
+			for (let n = 0; n < cycles; n++) {
+				if (d <= 0) on.push([n, 0], [n + 1, 0]);
+				else if (d >= 1) on.push([n, 1], [n + 1, 1]);
+				else on.push([n, 1], [n + d, 1], [n + d, 0], [n + 1, 0]);
+				marker.push([n, 2], [n + 0.01, 2], [n + 0.01, 0], [n + 1, 0]);
+			}
+			return { on, marker };
+		}
+
+		/** エクセルと同じ 0.1ms 刻みでサンプリングした折れ線 */
+		function sampledSeries(tmax: number, axis: Axis): { on: Point[]; marker: Point[] } {
+			const period = 1 / state.freq;
+			const count = Math.min(Math.floor(tmax * EXCEL_SAMPLES_PER_SEC + 1e-6), MAX_SAMPLES);
+			const on: Point[] = [];
+			const marker: Point[] = [];
+			for (let k = 0; k <= count; k++) {
+				const t = k / EXCEL_SAMPLES_PER_SEC;
+				const s = pwmSample(t, state.freq, state.duty);
+				const x = axis === 'time' ? t : t / period;
+				on.push([x, s.on]);
+				marker.push([x, s.marker]);
+			}
+			return { on, marker };
+		}
+
+		function draw(chart: Chart, xmax: number): boolean {
+			const period = 1 / state.freq;
+			const width = Math.max(280, chart.wrap.clientWidth);
+			// 2つの波形が1画面に収まる範囲で、画面が高いほど大きく描く
+			const height = Math.round(Math.min(300, Math.max(190, (window.innerHeight - 300) / 2)));
+			const m = { l: 30, r: 16, t: 10, b: 42 };
+			const plotW = width - m.l - m.r;
+			const plotH = height - m.t - m.b;
+			const sx = (x: number) => m.l + (x / xmax) * plotW;
+			const sy = (y: number) => m.t + plotH - (y / Y_MAX) * plotH;
+			chart.xmax = xmax;
+			chart.left = m.l;
+			chart.plotW = plotW;
+
+			const tmax = chart.axis === 'time' ? xmax : xmax * period;
+			const cyclesInView = tmax / period;
+			let truncated = false;
+			let series: { on: Point[]; marker: Point[] };
+			if (state.excelMode) {
+				truncated = tmax * EXCEL_SAMPLES_PER_SEC > MAX_SAMPLES;
+				series = sampledSeries(tmax, chart.axis);
+			} else {
+				truncated = cyclesInView > MAX_IDEAL_CYCLES;
+				series = idealSeries(Math.min(Math.ceil(cyclesInView), MAX_IDEAL_CYCLES), state.duty);
+				if (chart.axis === 'time') {
+					const scale = (p: Point): Point => [p[0] * period, p[1]];
+					series = { on: series.on.map(scale), marker: series.marker.map(scale) };
+				}
+			}
+
+			const path = (pts: Point[]) =>
+				pts.map((p, i) => `${i ? 'L' : 'M'}${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`).join('');
+
+			const clipId = `pwm-clip-${chart.axis}`;
+			const parts: string[] = [];
+			parts.push(`<defs><clipPath id="${clipId}"><rect x="${m.l}" y="${m.t - 2}" width="${plotW}" height="${plotH + 4}"/></clipPath></defs>`);
+
+			for (const y of [0, 1, 2]) {
+				parts.push(`<line class="pwm-grid" x1="${m.l}" x2="${m.l + plotW}" y1="${sy(y)}" y2="${sy(y)}"/>`);
+				parts.push(`<text class="pwm-tick" x="${m.l - 8}" y="${sy(y) + 4}" text-anchor="end">${y}</text>`);
+			}
+			const step = niceStep(xmax, Math.max(3, Math.floor(plotW / 90)));
+			for (let i = 0; i * step <= xmax * (1 + 1e-9); i++) {
+				const x = i * step;
+				parts.push(`<line class="pwm-grid" x1="${sx(x)}" x2="${sx(x)}" y1="${m.t}" y2="${m.t + plotH}"/>`);
+				parts.push(`<text class="pwm-tick" x="${sx(x)}" y="${m.t + plotH + 16}" text-anchor="middle">${fmt(x)}</text>`);
+			}
+			parts.push(`<line class="pwm-axis" x1="${m.l}" x2="${m.l + plotW}" y1="${sy(0)}" y2="${sy(0)}"/>`);
+			const axisTitle = chart.axis === 'time' ? 'time [s]' : 'PWMCYCLE [周期]';
+			parts.push(`<text class="pwm-axis-title" x="${m.l + plotW / 2}" y="${height - 6}" text-anchor="middle">${axisTitle}</text>`);
+
+			const avg = Math.min(Math.max(state.duty, 0), 100) / 100;
+			parts.push(`<g clip-path="url(#${clipId})">`);
+			parts.push(`<path class="pwm-line pwm-line-cycle" d="${path(series.marker)}"/>`);
+			parts.push(`<path class="pwm-line pwm-line-on" d="${path(series.on)}"/>`);
+			parts.push(`<line class="pwm-line-avg" x1="${m.l}" x2="${m.l + plotW}" y1="${sy(avg)}" y2="${sy(avg)}"/>`);
+			parts.push('</g>');
+			parts.push(`<line class="pwm-cross" x1="0" x2="0" y1="${m.t}" y2="${m.t + plotH}" visibility="hidden"/>`);
+
+			chart.svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+			chart.svg.setAttribute('width', String(width));
+			chart.svg.setAttribute('height', String(height));
+			chart.svg.innerHTML = parts.join('');
+			chart.tip.hidden = true;
+			return truncated;
+		}
+
+		function hover(chart: Chart, clientX: number) {
+			const rect = chart.svg.getBoundingClientRect();
+			const period = 1 / state.freq;
+			const ratio = Math.min(Math.max((clientX - rect.left - chart.left) / chart.plotW, 0), 1);
+			let t = ratio * chart.xmax * (chart.axis === 'time' ? 1 : period);
+			if (state.excelMode) t = Math.round(t * EXCEL_SAMPLES_PER_SEC) / EXCEL_SAMPLES_PER_SEC;
+			const x = chart.axis === 'time' ? t : t / period;
+			const px = chart.left + (Math.min(x, chart.xmax) / chart.xmax) * chart.plotW;
+			const s = pwmSample(t, state.freq, state.duty);
+
+			const cross = chart.svg.querySelector<SVGLineElement>('.pwm-cross');
+			if (cross) {
+				cross.setAttribute('x1', String(px));
+				cross.setAttribute('x2', String(px));
+				cross.setAttribute('visibility', 'visible');
+			}
+			chart.tip.innerHTML =
+				`<div><span>time</span><b>${fmt(t)} s</b></div>` +
+				`<div><span>PWMCYCLE</span><b>${fmt(s.cycle)}</b></div>` +
+				`<div><span>周期内の時間</span><b>${fmt(s.mod)} s</b></div>` +
+				`<div><span><i class="pwm-key pwm-key-on"></i>PWM ON</span><b>${s.on}（${s.on ? 'ON' : 'OFF'}）</b></div>` +
+				`<div><span><i class="pwm-key pwm-key-cycle"></i>PWM Cycle</span><b>${s.marker}</b></div>`;
+			chart.tip.hidden = false;
+			const tipW = chart.tip.offsetWidth;
+			const flip = px + 12 + tipW > rect.width;
+			chart.tip.style.left = `${flip ? px - 12 - tipW : px + 12}px`;
+		}
+
+		function hideHover(chart: Chart) {
+			chart.tip.hidden = true;
+			chart.svg.querySelector('.pwm-cross')?.setAttribute('visibility', 'hidden');
+		}
+
+		function renderTable() {
+			const rows: string[] = [];
+			for (let k = 0; k < TABLE_ROWS; k++) {
+				const t = k / EXCEL_SAMPLES_PER_SEC;
+				const s = pwmSample(t, state.freq, state.duty);
+				rows.push(`<tr><td>${fmt(t)}</td><td>${fmt(s.cycle)}</td><td>${fmt(s.mod)}</td><td>${s.marker}</td><td>${s.on}</td></tr>`);
+			}
+			tableBody.innerHTML = rows.join('');
+		}
+
+		function update() {
+			const freq = Number(freqInput.value);
+			const duty = Number(dutyInput.value);
+			const volt = Number(voltInput.value);
+			const tmax = Number(tmaxInput.value);
+			const cmax = Number(cmaxInput.value);
+
+			const errors: string[] = [];
+			if (!(freq > 0) || !Number.isFinite(freq)) errors.push('PWM周波数は 0 より大きい値を入力してください。');
+			if (!(duty >= 0 && duty <= 100)) errors.push('Duty は 0〜100 % の範囲で入力してください。');
+			if (!(tmax > 0) || !(cmax > 0)) errors.push('表示範囲は 0 より大きい値を入力してください。');
+			errorEl.hidden = errors.length === 0;
+			errorEl.textContent = errors.join(' ');
+			if (errors.length) return;
+
+			state = { freq, duty, volt, excelMode: modeSelect.value === 'excel' };
+			const p = pwmParams(freq, duty);
+			el('pwm-out-period').textContent = fmtSeconds(p.period);
+			el('pwm-out-on').textContent = fmtSeconds(p.onTime);
+			el('pwm-out-off').textContent = fmtSeconds(p.offTime);
+			el('pwm-out-avg').textContent =
+				volt >= 0 && Number.isFinite(volt) && voltInput.value !== ''
+					? `${fmt(duty)} %（${fmt((volt * duty) / 100)} V）`
+					: `${fmt(duty)} %`;
+
+			const truncated = [draw(charts[0], tmax), draw(charts[1], cmax)].some(Boolean);
+			const notes: string[] = [];
+			if (truncated) notes.push('表示範囲が広すぎるため、波形は途中までしか描いていません。表示範囲を狭めてください。');
+			if (state.excelMode && p.period * EXCEL_SAMPLES_PER_SEC < 20) {
+				notes.push('0.1ms刻みでは1周期あたりの点数が少なく、波形やON時間が正しく表現できません（エクセルの表でも同じ制約があります）。');
+			}
+			noteEl.hidden = notes.length === 0;
+			noteEl.textContent = notes.join(' ');
+			renderTable();
+		}
+
+		function link(number: HTMLInputElement, range: HTMLInputElement) {
+			number.addEventListener('input', () => {
+				range.value = number.value;
+				update();
+			});
+			range.addEventListener('input', () => {
+				number.value = range.value;
+				update();
+			});
+		}
+		link(freqInput, freqRange);
+		link(dutyInput, dutyRange);
+		for (const input of [voltInput, tmaxInput, cmaxInput]) input.addEventListener('input', update);
+		modeSelect.addEventListener('change', update);
+
+		document.querySelectorAll<HTMLButtonElement>('.pwm-preset').forEach((button) => {
+			button.addEventListener('click', () => {
+				dutyInput.value = dutyRange.value = button.dataset.duty ?? '50';
+				update();
+			});
+		});
+		el('pwm-fit').addEventListener('click', () => {
+			const freq = Number(freqInput.value);
+			if (!(freq > 0)) return;
+			tmaxInput.value = fmt(3 / freq);
+			update();
+		});
+		el('pwm-reset').addEventListener('click', () => {
+			freqInput.value = freqRange.value = String(DEFAULTS.freq);
+			dutyInput.value = dutyRange.value = String(DEFAULTS.duty);
+			voltInput.value = String(DEFAULTS.volt);
+			tmaxInput.value = String(DEFAULTS.tmax);
+			cmaxInput.value = String(DEFAULTS.cmax);
+			modeSelect.value = 'ideal';
+			update();
+		});
+
+		for (const chart of charts) {
+			chart.svg.addEventListener('pointermove', (e) => hover(chart, e.clientX));
+			chart.svg.addEventListener('pointerdown', (e) => hover(chart, e.clientX));
+			chart.svg.addEventListener('pointerleave', () => hideHover(chart));
+		}
+		new ResizeObserver(() => update()).observe(charts[0].wrap);
+		window.addEventListener('resize', update);
+
+		el('pwm-rows-count').textContent = String(TABLE_ROWS);
+		update();
+	</script>
+</Base>
+
+<style is:global>
+	:root {
+		--pwm-on: #2a78d6;
+		--pwm-cycle: #eb6834;
+	}
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--pwm-on: #3987e5;
+			--pwm-cycle: #d95926;
+		}
+	}
+	.pwm-layout {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-areas: "inputs" "charts" "stats" "settings";
+		gap: 1rem;
+		margin: 1rem 0 2rem;
+	}
+	.pwm-layout > * { margin: 0; min-width: 0; }
+	.pwm-area-inputs { grid-area: inputs; }
+	.pwm-area-stats { grid-area: stats; }
+	.pwm-area-settings { grid-area: settings; }
+	.pwm-area-charts { grid-area: charts; }
+	@media (min-width: 720px) {
+		.pwm-layout {
+			grid-template-columns: clamp(250px, 32%, 340px) minmax(0, 1fr);
+			grid-template-areas: "inputs charts" "stats charts" "settings charts";
+			grid-template-rows: auto auto 1fr;
+			column-gap: 1.5rem;
+		}
+		.pwm-area-charts { align-self: start; }
+	}
+	/* 波形が画面に収まる高さのときだけ、入力欄をスクロールしても波形を固定表示する */
+	@media (min-width: 720px) and (min-height: 680px) {
+		.pwm-area-charts { position: sticky; top: 4rem; }
+	}
+	/* 説明文や表は横に広がりすぎると読みにくいので幅を抑える */
+	main.wide > p, main.wide > table, main.wide > details { max-width: 860px; }
+	.pwm-chart-title { font-size: 1.05rem; margin: 0.9rem 0 0.2rem; }
+	.pwm-panel {
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		padding: 1rem 1.1rem;
+		margin: 1rem 0;
+	}
+	.pwm-field + .pwm-field { margin-top: 0.9rem; }
+	.pwm-field label { font-weight: 600; font-size: 0.9rem; }
+	.pwm-field label .muted { font-weight: 400; }
+	.pwm-inputs { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+	.pwm-inputs input[type="number"] { width: 7rem; max-width: 100%; padding: 0.4rem 0.5rem; font-size: 1rem; }
+	.pwm-inputs input[type="range"] { flex: 1; min-width: 160px; accent-color: var(--accent); }
+	.pwm-presets { margin-top: 0.35rem; }
+	.pwm-preset { border: none; cursor: pointer; font-family: inherit; }
+	.pwm-preset:hover { outline: 1px solid var(--accent); }
+	.pwm-error { color: #d03b3b; font-size: 0.9rem; margin: 0.75rem 0 0; }
+	.pwm-stats {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+		gap: 0.75rem;
+		margin: 1rem 0;
+	}
+	.pwm-stat { border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem 0.9rem; }
+	.pwm-stat-label { font-size: 0.75rem; color: var(--muted); }
+	.pwm-stat-value { font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+	.pwm-settings { display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem 1rem; font-size: 0.85rem; }
+	.pwm-settings label { display: flex; flex-direction: column; gap: 0.2rem; max-width: 100%; min-width: 0; }
+	.pwm-settings input, .pwm-settings select, .pwm-settings button { font-size: 0.9rem; padding: 0.35rem 0.5rem; }
+	.pwm-settings input { width: 8rem; }
+	.pwm-settings select { max-width: 100%; min-width: 0; }
+	.pwm-note { font-size: 0.85rem; margin: 0.75rem 0 0; }
+	.pwm-caption { font-size: 0.8rem; margin: 0 0 0.3rem; }
+	.pwm-legend { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; font-size: 0.85rem; }
+	.pwm-key {
+		display: inline-block;
+		width: 18px;
+		height: 0;
+		border-top: 3px solid var(--muted);
+		margin-right: 0.4rem;
+		vertical-align: middle;
+	}
+	.pwm-key-on { border-top-color: var(--pwm-on); }
+	.pwm-key-cycle { border-top-color: var(--pwm-cycle); }
+	.pwm-key-avg { border-top-style: dashed; border-top-width: 2px; }
+	.pwm-chart { position: relative; margin-bottom: 1rem; }
+	.pwm-chart svg { display: block; touch-action: pan-y; }
+	.pwm-grid { stroke: var(--border); stroke-width: 1; }
+	.pwm-axis { stroke: var(--muted); stroke-width: 1; }
+	.pwm-tick, .pwm-axis-title { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+	.pwm-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+	.pwm-line-on { stroke: var(--pwm-on); }
+	.pwm-line-cycle { stroke: var(--pwm-cycle); }
+	.pwm-line-avg { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 6 4; }
+	.pwm-cross { stroke: var(--fg); stroke-width: 1; opacity: 0.5; pointer-events: none; }
+	.pwm-tip {
+		position: absolute;
+		top: 8px;
+		pointer-events: none;
+		background: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		padding: 0.4rem 0.6rem;
+		font-size: 0.78rem;
+		line-height: 1.5;
+		white-space: nowrap;
+		box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+		font-variant-numeric: tabular-nums;
+	}
+	.pwm-tip div { display: flex; justify-content: space-between; gap: 1rem; }
+	.pwm-tip span { color: var(--muted); }
+	.pwm-table-wrap { max-height: 360px; overflow: auto; margin-top: 0.5rem; }
+	.pwm-table { border-collapse: collapse; font-size: 0.85rem; width: 100%; }
+	.pwm-table th, .pwm-table td { border-bottom: 1px solid var(--border); padding: 0.3rem 0.6rem; text-align: left; }
+	.pwm-table:not(.pwm-formulas) td { text-align: right; font-variant-numeric: tabular-nums; }
+	.pwm-table thead th { position: sticky; top: 0; background: var(--bg); }
+	.pwm-details { margin-top: 1.5rem; }
+	.pwm-details summary { cursor: pointer; font-weight: 600; }
+</style>

@@ -1,6 +1,16 @@
 ---
 import Base from '../../layouts/Base.astro';
 
+const base = import.meta.env.BASE_URL;
+
+const tools = [
+	{
+		title: 'PWMシミュレータ',
+		href: `${base}tools/pwm/`,
+		description: 'PWM周波数とDutyを入力して、周期・ON時間の計算と時間波形を確認するツール。',
+	},
+];
+
 const plannedTools = [
 	{
 		title: 'CAN解析ビューア',
@@ -21,8 +31,19 @@ const plannedTools = [
 ---
 <Base title="Tools" description="CAN解析・ECU信号・CSVグラフなど、ブラウザ上で動く計算・分析ツールの置き場（準備中）。">
 	<h1>Tools</h1>
-	<p class="muted">CAN解析・ECU信号・CSVグラフなど、HTML/JSベースの計算・分析ツールをここに追加していく予定です。現時点ではまだ雛形のみで、ツール本体は未実装です。</p>
+	<p class="muted">CAN解析・ECU信号・CSVグラフなど、HTML/JSベースの計算・分析ツールをここに追加していきます。</p>
 
+	<h2>公開中</h2>
+	<ul>
+		{tools.map((tool) => (
+			<li>
+				<a href={tool.href}><strong>{tool.title}</strong></a>
+				<div class="muted">{tool.description}</div>
+			</li>
+		))}
+	</ul>
+
+	<h2>計画中</h2>
 	<ul>
 		{plannedTools.map((tool) => (
 			<li>

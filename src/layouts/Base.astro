@@ -2,9 +2,11 @@
 interface Props {
 	title: string;
 	description?: string;
+	/** 2カラムのツール画面など、本文幅を広く使うページ用 */
+	wide?: boolean;
 }
 
-const { title, description } = Astro.props;
+const { title, description, wide = false } = Astro.props;
 const base = import.meta.env.BASE_URL;
 
 const navItems = [
@@ -73,6 +75,7 @@ const navItems = [
 				margin: 0 auto;
 				padding: 1.5rem 1.25rem 4rem;
 			}
+			main.wide { max-width: 1800px; }
 			.chip {
 				display: inline-block;
 				font-size: 0.8rem;
@@ -95,7 +98,7 @@ const navItems = [
 				<a href={item.href}>{item.label}</a>
 			))}
 		</nav>
-		<main>
+		<main class:list={{ wide }}>
 			<slot />
 		</main>
 	</body>
