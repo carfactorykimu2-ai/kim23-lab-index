@@ -19,7 +19,7 @@ category: "他社ECU・機器情報"
 car_model: "ロードスター(NB8/NB1)"
 ecu:
   - "MaxxECU"
-price: 100
+price: 0
 note_url: "https://note.com/labratory_ktech/n/ne89913773dd4"
 related: []
 ---
