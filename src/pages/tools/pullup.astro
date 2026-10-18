@@ -1,0 +1,257 @@
+---
+import Base from '../../layouts/Base.astro';
+
+const base = import.meta.env.BASE_URL;
+const raPresets = ['1k', '2.2k', '4.7k'];
+---
+<Base title="プルアップ抵抗 逆算ツール" description="既知の抵抗とECU入力電圧からプルアップ抵抗を、プルアップ抵抗と入力電圧からセンサ抵抗を計算するツール。">
+	<p><a href={`${base}tools/`}>&larr; Tools</a></p>
+	<h1>プルアップ抵抗 逆算ツール</h1>
+	<p class="muted">数値を入力すると計算します。抵抗は <code>2200</code> <code>2.2k</code> <code>2k2</code> の表記が使えます。</p>
+
+	<figure class="pu-figure">
+		<svg viewBox="0 0 680 360" role="img" aria-label="電源Vinに抵抗R1とR2が直列に接続された分圧回路。R1にかかる電圧がV1、R2にかかる電圧がV2">
+			<defs>
+				<marker id="pu-arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+					<path d="M0 0 L10 5 L0 10 z" class="pu-arrow-head" />
+				</marker>
+			</defs>
+
+			<!-- 基準線（電位） -->
+			<g class="pu-ref">
+				<line x1="300" y1="40" x2="620" y2="40" />
+				<line x1="300" y1="180" x2="620" y2="180" />
+				<line x1="300" y1="320" x2="620" y2="320" />
+			</g>
+
+			<!-- 配線・電池・抵抗 -->
+			<g class="pu-wire">
+				<path d="M110 165 V40 H300 V70 L286 77 L314 91 L286 105 L314 119 L286 133 L314 147 L300 154 V180" />
+				<path d="M300 180 V210 L286 217 L314 231 L286 245 L314 259 L286 273 L314 287 L300 294 V320 H110 V185" />
+				<line x1="85" y1="165" x2="135" y2="165" />
+				<line x1="98" y1="185" x2="122" y2="185" />
+			</g>
+			<circle cx="300" cy="180" r="4.5" class="pu-node" />
+
+			<!-- ラベル -->
+			<text x="14" y="188" class="pu-label pu-label-big">Vin</text>
+			<text x="142" y="160" class="pu-note">＋</text>
+			<text x="142" y="204" class="pu-note">−</text>
+			<text x="335" y="102" class="pu-label">R1</text>
+			<text x="335" y="124" class="pu-note">ECU内部プルアップ</text>
+			<text x="335" y="252" class="pu-label">R2</text>
+			<text x="335" y="274" class="pu-note">センサ（測定時は Ra）</text>
+			<text x="320" y="172" class="pu-note pu-node-label" text-anchor="start">ECU入力ピン</text>
+
+			<!-- 電圧の矢印 -->
+			<g class="pu-dim">
+				<line x1="500" y1="46" x2="500" y2="174" marker-start="url(#pu-arrow)" marker-end="url(#pu-arrow)" />
+				<line x1="500" y1="186" x2="500" y2="314" marker-start="url(#pu-arrow)" marker-end="url(#pu-arrow)" />
+				<line x1="600" y1="46" x2="600" y2="314" marker-start="url(#pu-arrow)" marker-end="url(#pu-arrow)" />
+			</g>
+			<text x="515" y="118" class="pu-label pu-dim-label">V1</text>
+			<text x="515" y="258" class="pu-label pu-dim-label pu-dim-label-key">V2</text>
+			<text x="612" y="188" class="pu-label pu-dim-label">Vin</text>
+		</svg>
+		<figcaption class="muted">
+			同じ電流が R1 → R2 と流れるので、Vin は抵抗値の比で V1 と V2 に分かれます（V1 + V2 = Vin）。
+			ECU が測っているのは <strong>V2</strong>（R2 にかかる電圧）です。
+			<br /><code>V2 = Vin × R2 / (R1 + R2)</code>
+		</figcaption>
+	</figure>
+
+	<section class="pu-panel" aria-label="共通入力">
+		<div class="pu-field">
+			<label for="pu-vin">Ref電圧 Vin <span class="muted">[V]</span></label>
+			<input id="pu-vin" type="text" value="5" inputmode="decimal" />
+		</div>
+	</section>
+
+	<section class="pu-panel" aria-label="プルアップ抵抗を求める">
+		<h2>① プルアップ抵抗 R1 を求める</h2>
+		<p class="muted">センサを外し、抵抗値が分かっている抵抗 Ra を接続して V2 を測定。</p>
+		<div class="pu-field">
+			<label for="pu-ra">接続した抵抗 Ra <span class="muted">[<span class="pu-ohm">Ω</span>]</span></label>
+			<input id="pu-ra" type="text" value="1000" inputmode="decimal" />
+			<div class="pu-presets">
+				{raPresets.map((p) => (
+					<button class="chip pu-preset" type="button" data-ra={p}>{p.replace('k', ' k')}<span class="pu-ohm">Ω</span></button>
+				))}
+			</div>
+		</div>
+		<div class="pu-field">
+			<label for="pu-v2a">ECU入力電圧 V2 <span class="muted">[V]</span></label>
+			<input id="pu-v2a" type="text" value="1.5625" inputmode="decimal" />
+		</div>
+		<div class="pu-result" aria-live="polite">
+			<div class="pu-result-label">R1 = Ra × (Vin − V2) / V2</div>
+			<div class="pu-result-value" id="pu-out-r1">–</div>
+			<div class="pu-result-sub" id="pu-out-r1-ohm"></div>
+		</div>
+		<p id="pu-msg-a" class="pu-msg" role="alert" hidden></p>
+	</section>
+
+	<section class="pu-panel" aria-label="センサ抵抗を求める">
+		<h2>② センサ抵抗 R2 を求める</h2>
+		<p class="muted">プルアップ抵抗 R1 と、ECUが測定している電圧 V2（ランタイム値）から計算。</p>
+		<div class="pu-field">
+			<label for="pu-r1">プルアップ抵抗 R1 <span class="muted">[<span class="pu-ohm">Ω</span>]</span></label>
+			<input id="pu-r1" type="text" value="2200" inputmode="decimal" />
+			<div class="pu-presets">
+				<button class="chip pu-preset" type="button" id="pu-use-r1">①の結果を使う</button>
+			</div>
+		</div>
+		<div class="pu-field">
+			<label for="pu-v2b">ECU入力電圧 V2 <span class="muted">[V]</span></label>
+			<input id="pu-v2b" type="text" value="2.5" inputmode="decimal" />
+		</div>
+		<div class="pu-result" aria-live="polite">
+			<div class="pu-result-label">R2 = R1 × V2 / (Vin − V2)</div>
+			<div class="pu-result-value" id="pu-out-r2">–</div>
+			<div class="pu-result-sub" id="pu-out-r2-ohm"></div>
+		</div>
+		<p id="pu-msg-b" class="pu-msg" role="alert" hidden></p>
+	</section>
+
+	<script>
+		import { formatResistance, isValidV2, parseResistance, pullupFromKnown, sensorFromPullup } from '../../lib/pullup';
+
+		const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+		const vinInput = el<HTMLInputElement>('pu-vin');
+		const raInput = el<HTMLInputElement>('pu-ra');
+		const v2aInput = el<HTMLInputElement>('pu-v2a');
+		const r1Input = el<HTMLInputElement>('pu-r1');
+		const v2bInput = el<HTMLInputElement>('pu-v2b');
+
+		/** 電圧の入力（全角・カンマ小数点も許容）。解釈できなければ NaN */
+		function parseVolt(text: string): number {
+			const s = text.normalize('NFKC').trim().replace(',', '.').replace(/v$/i, '');
+			return s === '' ? NaN : Number(s);
+		}
+
+		/** Ω はフォールバックフォントだと太字で別の字形になるため、専用フォントの span で包む */
+		function setOhmText(target: HTMLElement, text: string) {
+			target.replaceChildren(text.replace(/Ω$/, ''));
+			if (text.endsWith('Ω')) {
+				const span = document.createElement('span');
+				span.className = 'pu-ohm';
+				span.textContent = 'Ω';
+				target.append(span);
+			}
+		}
+
+		function show(valueId: string, ohmId: string, msgId: string, ohm: number | null, msg: string) {
+			const value = el(valueId);
+			const sub = el(ohmId);
+			const msgEl = el(msgId);
+			if (ohm === null) {
+				value.textContent = '–';
+				sub.textContent = '';
+			} else {
+				setOhmText(value, formatResistance(ohm));
+				setOhmText(sub, `${String(Number(ohm.toPrecision(6)))} Ω`);
+			}
+			msgEl.textContent = msg;
+			msgEl.hidden = msg === '';
+		}
+
+		/** V2 が 0V や Vin に近いほど誤差が大きくなるため、範囲外の目安を出す */
+		function v2Hint(vin: number, v2: number): string {
+			if (v2 < vin * 0.1 || v2 > vin * 0.9) {
+				return `V2 が ${v2 < vin / 2 ? '0V' : 'Vin'} に近いため誤差が大きくなります（2.5V付近が理想）。`;
+			}
+			return '';
+		}
+
+		function inputError(vin: number, v2: number): string {
+			if (!(vin > 0)) return 'Vin を正しく入力してください。';
+			if (Number.isNaN(v2)) return 'V2 を正しく入力してください。';
+			if (!isValidV2(vin, v2)) return 'V2 は 0V より大きく Vin より小さい値にしてください。';
+			return '';
+		}
+
+		function calcA() {
+			const vin = parseVolt(vinInput.value);
+			const v2 = parseVolt(v2aInput.value);
+			const ra = parseResistance(raInput.value);
+			let err = inputError(vin, v2);
+			if (!err && !(ra > 0)) err = 'Ra を正しく入力してください。';
+			if (err) return show('pu-out-r1', 'pu-out-r1-ohm', 'pu-msg-a', null, err);
+			show('pu-out-r1', 'pu-out-r1-ohm', 'pu-msg-a', pullupFromKnown(vin, ra, v2), v2Hint(vin, v2));
+		}
+
+		function calcB() {
+			const vin = parseVolt(vinInput.value);
+			const v2 = parseVolt(v2bInput.value);
+			const r1 = parseResistance(r1Input.value);
+			let err = inputError(vin, v2);
+			if (!err && !(r1 > 0)) err = 'R1 を正しく入力してください。';
+			if (err) return show('pu-out-r2', 'pu-out-r2-ohm', 'pu-msg-b', null, err);
+			show('pu-out-r2', 'pu-out-r2-ohm', 'pu-msg-b', sensorFromPullup(vin, r1, v2), v2Hint(vin, v2));
+		}
+
+		function calcAll() {
+			calcA();
+			calcB();
+		}
+
+		vinInput.addEventListener('input', calcAll);
+		for (const input of [raInput, v2aInput]) input.addEventListener('input', calcA);
+		for (const input of [r1Input, v2bInput]) input.addEventListener('input', calcB);
+
+		document.querySelectorAll<HTMLButtonElement>('[data-ra]').forEach((btn) => {
+			btn.addEventListener('click', () => {
+				raInput.value = String(parseResistance(btn.dataset.ra ?? ''));
+				calcA();
+			});
+		});
+
+		el<HTMLButtonElement>('pu-use-r1').addEventListener('click', () => {
+			const vin = parseVolt(vinInput.value);
+			const v2 = parseVolt(v2aInput.value);
+			const ra = parseResistance(raInput.value);
+			if (inputError(vin, v2) || !(ra > 0)) return;
+			r1Input.value = String(Number(pullupFromKnown(vin, ra, v2).toPrecision(6)));
+			calcB();
+		});
+
+		calcAll();
+	</script>
+</Base>
+
+<style is:global>
+	.pu-figure { margin: 1rem 0; max-width: 680px; }
+	.pu-figure svg { display: block; width: 100%; height: auto; }
+	.pu-figure figcaption { font-size: 0.85rem; margin-top: 0.4rem; }
+	.pu-wire { fill: none; stroke: var(--fg); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+	.pu-node { fill: var(--fg); }
+	.pu-ref line { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; }
+	.pu-dim line { stroke: var(--accent); stroke-width: 2; }
+	.pu-arrow-head { fill: var(--accent); }
+	.pu-label { fill: var(--fg); font-size: 22px; font-weight: 600; }
+	.pu-label-big { font-size: 32px; }
+	.pu-note { fill: var(--muted); font-size: 16px; }
+	.pu-dim-label { fill: var(--accent); }
+	.pu-dim-label-key { font-size: 26px; }
+	.pu-panel {
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		padding: 1rem 1.1rem;
+		margin: 1rem 0;
+	}
+	.pu-panel h2 { font-size: 1.4rem; margin: 0 0 0.3rem; }
+	.pu-panel > p { margin: 0 0 0.9rem; font-size: 1rem; }
+	.pu-field + .pu-field { margin-top: 0.9rem; }
+	.pu-field label { display: block; font-weight: 600; font-size: 1.1rem; margin-bottom: 0.2rem; }
+	.pu-field label .muted { font-weight: 400; }
+	.pu-field input[type="text"] { width: 12rem; max-width: 100%; padding: 0.5rem 0.7rem; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+	.pu-ohm { font-family: Arial, "Helvetica Neue", sans-serif; }
+	.pu-presets { margin-top: 0.35rem; }
+	.pu-preset { border: none; cursor: pointer; font-family: inherit; font-size: 1rem; padding: 0.25rem 0.8rem; }
+	.pu-preset:hover { outline: 1px solid var(--accent); }
+	.pu-result { border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1.1rem; margin-top: 1.2rem; }
+	.pu-result-label { font-size: 1rem; color: var(--muted); }
+	.pu-result-value { font-size: 2.6rem; line-height: 1.3; font-weight: 600; font-variant-numeric: tabular-nums; }
+	.pu-result-sub { font-size: 1.1rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+	.pu-msg { color: #d03b3b; font-size: 1rem; margin: 0.75rem 0 0; }
+</style>
