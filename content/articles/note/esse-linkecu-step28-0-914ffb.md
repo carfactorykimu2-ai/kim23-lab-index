@@ -20,6 +20,7 @@ price: 100
 note_url: "https://note.com/labratory_ktech/n/n77f803914ffb"
 related:
   - "esse-linkecu-step27-2-2e1dbc"
+  - "esse-linkecu-step28-1-9587f7"
 ---
 
 この記事は note.com「Kim23 Test Laboratory」で公開されている記事のメタデータ索引です。
