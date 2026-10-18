@@ -1,0 +1,345 @@
+---
+import Base from '../../layouts/Base.astro';
+
+const base = import.meta.env.BASE_URL;
+---
+<Base title="サーミスタ B定数・温度-抵抗表" description="2点の温度と抵抗からNTCサーミスタのB定数を計算し、-40〜160℃の温度-抵抗表（ECU入力電圧つき）を作るツール。">
+	<p><a href={`${base}tools/`}>&larr; Tools</a></p>
+	<h1>サーミスタ B定数・温度-抵抗表</h1>
+	<p class="muted">
+		水温・吸気温センサ（NTCサーミスタ）の、2点の温度と抵抗から B定数を計算し、温度-抵抗表を作ります。
+		抵抗は <code>2200</code> <code>2.2k</code> <code>2k2</code> の表記が使えます。
+		記事「<a href={`${base}articles/misc-a2b1f2/`}>温度センサの温度-抵抗特性 と B定数</a>」と同じ計算式です。
+	</p>
+
+	<section class="th-panel" aria-label="B定数を求める">
+		<h2>① B定数を求める</h2>
+		<p class="muted">センサを温めたり冷やしたりして、2つの温度で抵抗を測った値を入れます。温度は離れているほど精度が上がります。</p>
+		<div class="th-points">
+			<fieldset class="th-point">
+				<legend>測定点 a</legend>
+				<div class="th-field">
+					<label for="th-ta">温度 Ta <span class="muted">[℃]</span></label>
+					<input id="th-ta" type="text" value="20" inputmode="decimal" />
+				</div>
+				<div class="th-field">
+					<label for="th-ra">抵抗 Ra <span class="muted">[<span class="th-ohm">Ω</span>]</span></label>
+					<input id="th-ra" type="text" value="6600" inputmode="decimal" />
+				</div>
+			</fieldset>
+			<fieldset class="th-point">
+				<legend>測定点 b</legend>
+				<div class="th-field">
+					<label for="th-tb">温度 Tb <span class="muted">[℃]</span></label>
+					<input id="th-tb" type="text" value="80" inputmode="decimal" />
+				</div>
+				<div class="th-field">
+					<label for="th-rb">抵抗 Rb <span class="muted">[<span class="th-ohm">Ω</span>]</span></label>
+					<input id="th-rb" type="text" value="626" inputmode="decimal" />
+				</div>
+			</fieldset>
+		</div>
+		<div class="th-result" aria-live="polite">
+			<div class="th-result-label">B = ln(Ra / Rb) / (1/(273.15+Ta) − 1/(273.15+Tb))</div>
+			<div class="th-result-value" id="th-out-b">–</div>
+		</div>
+		<p id="th-msg-b" class="th-msg" role="alert" hidden></p>
+	</section>
+
+	<section class="th-panel" aria-label="温度-抵抗表">
+		<h2>② 温度-抵抗表</h2>
+		<div class="th-field">
+			<span class="th-field-title">計算のもと</span>
+			<label class="th-radio"><input type="radio" name="th-source" value="points" checked /> ①の2点から（基準は Ta, Ra）</label>
+			<label class="th-radio"><input type="radio" name="th-source" value="direct" /> B定数を直接入力（データシートの R25・B値など）</label>
+		</div>
+		<div id="th-direct" class="th-row" hidden>
+			<div class="th-field">
+				<label for="th-t0">基準温度 T0 <span class="muted">[℃]</span></label>
+				<input id="th-t0" type="text" value="25" inputmode="decimal" />
+			</div>
+			<div class="th-field">
+				<label for="th-r0">T0 の抵抗 R0 <span class="muted">[<span class="th-ohm">Ω</span>]</span></label>
+				<input id="th-r0" type="text" value="2.2k" inputmode="decimal" />
+			</div>
+			<div class="th-field">
+				<label for="th-b">B定数 <span class="muted">[K]</span></label>
+				<input id="th-b" type="text" value="3950" inputmode="decimal" />
+			</div>
+		</div>
+		<div class="th-row">
+			<div class="th-field">
+				<label for="th-start">開始 <span class="muted">[℃]</span></label>
+				<input id="th-start" type="text" value="-40" inputmode="decimal" />
+			</div>
+			<div class="th-field">
+				<label for="th-end">終了 <span class="muted">[℃]</span></label>
+				<input id="th-end" type="text" value="160" inputmode="decimal" />
+			</div>
+			<div class="th-field">
+				<label for="th-step">刻み <span class="muted">[℃]</span></label>
+				<input id="th-step" type="text" value="10" inputmode="decimal" />
+			</div>
+		</div>
+		<div class="th-row">
+			<div class="th-field">
+				<label for="th-rpu">プルアップ抵抗 <span class="muted">[<span class="th-ohm">Ω</span>]（任意）</span></label>
+				<input id="th-rpu" type="text" value="" placeholder="例: 2.2k" inputmode="decimal" />
+			</div>
+			<div class="th-field">
+				<label for="th-vin">Ref電圧 Vin <span class="muted">[V]</span></label>
+				<input id="th-vin" type="text" value="5" inputmode="decimal" />
+			</div>
+		</div>
+		<p class="muted th-hint">
+			プルアップ抵抗を入れると、ECUが読む入力電圧 V2 の列が追加されます（電圧-温度で校正するECU用）。
+			値が分からないときは <a href={`${base}tools/pullup/`}>プルアップ抵抗 逆算ツール</a> で求められます。
+		</p>
+		<p id="th-msg-t" class="th-msg" role="alert" hidden></p>
+
+		<div class="th-actions">
+			<button class="chip th-btn" type="button" id="th-copy">表をコピー（Excel貼り付け用）</button>
+			<button class="chip th-btn" type="button" id="th-csv">CSVダウンロード</button>
+			<span id="th-copied" class="muted" aria-live="polite"></span>
+		</div>
+
+		<p id="th-basis" class="muted th-basis"></p>
+		<div class="th-table-wrap">
+			<table class="th-table">
+				<thead>
+					<tr id="th-head"></tr>
+				</thead>
+				<tbody id="th-body"></tbody>
+			</table>
+		</div>
+		<p class="muted th-hint">R(T) = R0 × exp(B × (1/(273.15+T) − 1/(273.15+T0)))。B定数による近似のため、測定点から離れた温度ほど実物との差が大きくなります。</p>
+	</section>
+
+	<script>
+		import { formatResistance, parseResistance } from '../../lib/pullup';
+		import { bConstant, dividerVoltage, resistanceAt, temperatureSteps } from '../../lib/thermistor';
+
+		const MAX_ROWS = 500;
+
+		const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+		const input = (id: string) => el<HTMLInputElement>(id);
+		const taInput = input('th-ta');
+		const raInput = input('th-ra');
+		const tbInput = input('th-tb');
+		const rbInput = input('th-rb');
+
+		/** 数値の入力（全角・カンマ小数点も許容）。解釈できなければ NaN */
+		function parseNum(text: string): number {
+			const s = text.normalize('NFKC').trim().replace(',', '.').replace(/\s*(v|°c?)$/i, '');
+			return s === '' ? NaN : Number(s);
+		}
+
+		/** Ω はフォールバックフォントだと太字で別の字形になるため、専用フォントの span で包む */
+		function setOhmText(target: HTMLElement, text: string) {
+			const parts = text.split('Ω');
+			target.replaceChildren(parts[0]);
+			for (const part of parts.slice(1)) {
+				const span = document.createElement('span');
+				span.className = 'th-ohm';
+				span.textContent = 'Ω';
+				target.append(span, part);
+			}
+		}
+
+		function setMsg(id: string, msg: string) {
+			const m = el(id);
+			m.textContent = msg;
+			m.hidden = msg === '';
+		}
+
+		/** 表の抵抗値: 100Ω以上は整数、それ未満は小数1桁 */
+		function ohmCell(r: number): string {
+			return r >= 100 ? String(Math.round(r)) : r.toFixed(1);
+		}
+
+		const validTemp = (t: number) => Number.isFinite(t) && t > -273.15;
+
+		interface Point { t: number; r: number }
+		interface Basis { t0: number; r0: number; b: number; marks: number[] }
+
+		/** ①: 2点を読み取って B定数を表示。計算できなければ null */
+		function calcB(): { a: Point; b: Point; b0: number } | null {
+			const a = { t: parseNum(taInput.value), r: parseResistance(raInput.value) };
+			const b = { t: parseNum(tbInput.value), r: parseResistance(rbInput.value) };
+			let err = '';
+			if (!validTemp(a.t) || !validTemp(b.t)) err = '温度 Ta・Tb を正しく入力してください。';
+			else if (!(a.r > 0) || !(b.r > 0)) err = '抵抗 Ra・Rb を正しく入力してください。';
+			else if (a.t === b.t) err = 'Ta と Tb は違う温度にしてください。';
+			if (err) {
+				el('th-out-b').textContent = '–';
+				setMsg('th-msg-b', err);
+				return null;
+			}
+			const b0 = bConstant(a.t, a.r, b.t, b.r);
+			el('th-out-b').textContent = `${b0.toFixed(1)} K`;
+			setMsg('th-msg-b', b0 < 0 ? '温度が高い方の抵抗が大きくなっています（NTCでは温度が上がると抵抗が下がります）。値を確認してください。' : '');
+			return { a, b, b0 };
+		}
+
+		function basisFromInputs(fromB: ReturnType<typeof calcB>): Basis | string {
+			const source = document.querySelector<HTMLInputElement>('input[name="th-source"]:checked')?.value;
+			if (source === 'direct') {
+				const t0 = parseNum(input('th-t0').value);
+				const r0 = parseResistance(input('th-r0').value);
+				const b = parseNum(input('th-b').value);
+				if (!validTemp(t0)) return '基準温度 T0 を正しく入力してください。';
+				if (!(r0 > 0)) return '抵抗 R0 を正しく入力してください。';
+				if (!(b > 0)) return 'B定数を正しく入力してください。';
+				return { t0, r0, b, marks: [t0] };
+			}
+			if (!fromB) return '①の入力を確認してください。';
+			return { t0: fromB.a.t, r0: fromB.a.r, b: fromB.b0, marks: [fromB.a.t, fromB.b.t] };
+		}
+
+		let tableRows: string[][] = [];
+
+		function renderTable(header: string[], rows: string[][], marks: number[]) {
+			const head = el('th-head');
+			head.replaceChildren(...header.map((h) => {
+				const th = document.createElement('th');
+				setOhmText(th, h);
+				return th;
+			}));
+			const body = el('th-body');
+			body.replaceChildren(...rows.map((cells) => {
+				const tr = document.createElement('tr');
+				if (marks.includes(Number(cells[0]))) tr.className = 'th-mark';
+				for (const c of cells) {
+					const td = document.createElement('td');
+					td.textContent = c;
+					tr.append(td);
+				}
+				return tr;
+			}));
+		}
+
+		function header(withV: boolean): string[] {
+			return withV ? ['温度 [℃]', '抵抗 [Ω]', 'V2 [V]'] : ['温度 [℃]', '抵抗 [Ω]'];
+		}
+
+		function calcAll() {
+			const fromB = calcB();
+			const basis = basisFromInputs(fromB);
+			const start = parseNum(input('th-start').value);
+			const end = parseNum(input('th-end').value);
+			const step = parseNum(input('th-step').value);
+			const rpuText = input('th-rpu').value.trim();
+			const rpu = rpuText === '' ? NaN : parseResistance(rpuText);
+			const vin = parseNum(input('th-vin').value);
+
+			let err = typeof basis === 'string' ? basis : '';
+			if (!err && (!validTemp(start) || !Number.isFinite(end) || !(end >= start))) err = '開始・終了の温度を正しく入力してください（開始 ≦ 終了）。';
+			else if (!err && !(step > 0)) err = '刻みは 0 より大きい値にしてください。';
+			else if (!err && (end - start) / step + 1 > MAX_ROWS) err = `行数が多すぎます（${MAX_ROWS}行まで）。刻みを大きくしてください。`;
+			else if (!err && rpuText !== '' && !(rpu > 0)) err = 'プルアップ抵抗を正しく入力してください（使わないときは空欄）。';
+			else if (!err && rpu > 0 && !(vin > 0)) err = 'Vin を正しく入力してください。';
+			setMsg('th-msg-t', err);
+			if (err || typeof basis === 'string') {
+				tableRows = [];
+				el('th-basis').textContent = '';
+				renderTable(header(false), [], []);
+				return;
+			}
+
+			const withV = rpu > 0;
+			tableRows = temperatureSteps(start, end, step).map((t) => {
+				const r = resistanceAt(t, basis.t0, basis.r0, basis.b);
+				const cells = [String(t), ohmCell(r)];
+				if (withV) cells.push(dividerVoltage(vin, rpu, r).toFixed(3));
+				return cells;
+			});
+			renderTable(header(withV), tableRows, basis.marks);
+
+			const basisText = `基準 ${basis.t0}℃ = ${formatResistance(basis.r0)}、B = ${basis.b.toFixed(1)} K`
+				+ (withV ? `、プルアップ ${formatResistance(rpu)}・Vin ${vin} V` : '');
+			setOhmText(el('th-basis'), basisText);
+		}
+
+		function tableText(sep: string): string {
+			const withV = tableRows[0]?.length === 3;
+			return [header(withV), ...tableRows].map((cells) => cells.join(sep)).join('\r\n');
+		}
+
+		function flash(text: string) {
+			const out = el('th-copied');
+			out.textContent = text;
+			setTimeout(() => { if (out.textContent === text) out.textContent = ''; }, 2000);
+		}
+
+		el<HTMLButtonElement>('th-copy').addEventListener('click', async () => {
+			if (tableRows.length === 0) return;
+			try {
+				await navigator.clipboard.writeText(tableText('\t'));
+				flash('コピーしました');
+			} catch {
+				flash('コピーできませんでした');
+			}
+		});
+
+		el<HTMLButtonElement>('th-csv').addEventListener('click', () => {
+			if (tableRows.length === 0) return;
+			// Excel で文字化けしないよう BOM 付き UTF-8
+			const blob = new Blob(['﻿' + tableText(',') + '\r\n'], { type: 'text/csv' });
+			const a = document.createElement('a');
+			a.href = URL.createObjectURL(blob);
+			a.download = 'thermistor-table.csv';
+			a.click();
+			URL.revokeObjectURL(a.href);
+		});
+
+		document.querySelectorAll<HTMLInputElement>('input[name="th-source"]').forEach((radio) => {
+			radio.addEventListener('change', () => {
+				el('th-direct').hidden = radio.value !== 'direct' || !radio.checked;
+				calcAll();
+			});
+		});
+
+		document.querySelectorAll<HTMLInputElement>('.th-panel input[type="text"]').forEach((i) => {
+			i.addEventListener('input', calcAll);
+		});
+
+		calcAll();
+	</script>
+</Base>
+
+<style is:global>
+	.th-panel {
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		padding: 1rem 1.1rem;
+		margin: 1rem 0;
+	}
+	.th-panel h2 { font-size: 1.4rem; margin: 0 0 0.3rem; }
+	.th-panel > p { margin: 0 0 0.9rem; font-size: 1rem; }
+	.th-points { display: flex; flex-wrap: wrap; gap: 1rem; }
+	.th-point { border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.9rem 0.9rem; margin: 0; flex: 1 1 14rem; }
+	.th-point legend { font-weight: 600; padding: 0 0.3rem; }
+	.th-row { display: flex; flex-wrap: wrap; gap: 0 1.2rem; margin-top: 0.9rem; }
+	.th-row[hidden] { display: none; }
+	.th-field + .th-field { margin-top: 0.9rem; }
+	.th-row .th-field + .th-field { margin-top: 0; }
+	.th-field label, .th-field-title { display: block; font-weight: 600; font-size: 1.1rem; margin-bottom: 0.2rem; }
+	.th-field label .muted { font-weight: 400; }
+	.th-field label.th-radio { font-weight: 400; font-size: 1rem; }
+	.th-field input[type="text"] { width: 9rem; max-width: 100%; padding: 0.5rem 0.7rem; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+	.th-ohm { font-family: Arial, "Helvetica Neue", sans-serif; }
+	.th-result { border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1.1rem; margin-top: 1.2rem; }
+	.th-result-label { font-size: 0.95rem; color: var(--muted); }
+	.th-result-value { font-size: 2.6rem; line-height: 1.3; font-weight: 600; font-variant-numeric: tabular-nums; }
+	.th-msg { color: #d03b3b; font-size: 1rem; margin: 0.75rem 0 0; }
+	.th-hint { font-size: 0.9rem; margin: 0.6rem 0 0; }
+	.th-actions { margin-top: 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+	.th-btn { border: none; cursor: pointer; font-family: inherit; font-size: 1rem; padding: 0.3rem 0.9rem; }
+	.th-btn:hover { outline: 1px solid var(--accent); }
+	.th-basis { font-size: 0.95rem; margin: 0.6rem 0 0.3rem; }
+	.th-table-wrap { overflow-x: auto; }
+	.th-table { border-collapse: collapse; font-variant-numeric: tabular-nums; min-width: 16rem; }
+	.th-table th, .th-table td { border: 1px solid var(--border); padding: 0.25rem 1rem; text-align: right; }
+	.th-table th { background: var(--chip-bg); font-weight: 600; }
+	.th-table tr.th-mark td { background: color-mix(in srgb, var(--accent) 14%, transparent); font-weight: 600; }
+</style>
