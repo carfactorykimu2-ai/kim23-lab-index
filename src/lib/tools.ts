@@ -28,6 +28,19 @@ export const tools: Tool[] = [
 		description: '2点の温度と抵抗からNTCサーミスタのB定数を計算し、-40〜160℃の温度-抵抗表（ECU入力電圧つき）を作るツール。',
 		articles: ['misc-a2b1f2', 'misc-linkecu-8674a0'],
 	},
+	{
+		slug: 'fuelpump',
+		title: '燃料ポンプ LO/HI 切替計算',
+		description: 'LINK ECU の燃料ポンプ2速制御（RPM XOver / Inj デューティ XOver）を、インジェクター流量・燃圧・LO時ポンプ流量から計算するツール。',
+		articles: [
+			'misc-751ad4',
+			'altoworks-linkecu-step19-f71505',
+			'esse-linkecu-step19-b57fa5',
+			'altoworks-linkecu-e70d48',
+			'altoworks-59ffdc',
+			'sonica-c2d14c',
+		],
+	},
 ];
 
 export function toolsForArticle(articleId: string): Tool[] {

@@ -1,0 +1,343 @@
+---
+import Base from '../../layouts/Base.astro';
+
+const base = import.meta.env.BASE_URL;
+---
+<Base title="燃料ポンプ LO/HI 切替計算" description="LINK ECU の燃料ポンプ2速制御（RPM XOver / Inj デューティ XOver）を、インジェクター流量・本数・燃圧・LO時ポンプ流量から計算するツール。">
+	<p><a href={`${base}tools/`}>&larr; Tools</a></p>
+	<h1>燃料ポンプ LO/HI 切替計算</h1>
+	<p class="muted">
+		抵抗でポンプ電圧を下げる2速制御（LO/HI）の切替点を、LINK ECU の <b>RPM XOver</b> / <b>Inj デューティ XOver</b> として計算します。
+		考え方は「<b>LO時のポンプ吐出量 × 安全率 ＞ エンジンの燃料消費量</b>」の範囲だけLOで回し、それを超える前にHIへ切り替える、です。
+		ポンプ流量の実測は「<a href={`${base}articles/misc-751ad4/`}>ヤフオク格安「255L/h燃料ポンプ」を実測してみました</a>」、
+		LINK ECU での燃料ポンプ出力の設定は「<a href={`${base}articles/altoworks-linkecu-step19-f71505/`}>HA22S LINKECU フルコン化 STEP19</a>」も参考にしてください。
+	</p>
+
+	<div id="fpx">
+
+  <div class="card">
+    <h2>入力</h2>
+    <div class="cols">
+      <div>
+        <div class="row"><label>気筒数<small>インジェクター本数</small></label><input id="cyl" type="number" value="4" min="1" step="1"></div>
+        <div class="row"><label>インジェクター流量 [cc/min]<small>カタログ値</small></label><input id="injFlow" type="number" value="550" step="10"></div>
+        <div class="row"><label>燃圧（REG設定）[kPa]<small id="cv-baseP" class="note"></small></label><input id="baseP" type="number" value="300" step="5"></div>
+        <div class="row"><label>レギュレーター</label>
+          <select id="regType"><option value="ref" selected>ブースト連動（1:1）</option><option value="fix">固定圧（リターンレス等）</option></select></div>
+      </div>
+      <div>
+        <div class="row"><label>最大ブースト [kPa]<small id="cv-boost" class="note"></small></label><input id="boost" type="number" value="100" step="5"></div>
+        <div class="row" id="loRow"><label>LO 時ポンプ流量 [L/h]<small id="loPLabel"></small></label><input id="lo" type="number" value="75" step="1"></div>
+        <div class="row"><label>安全率 [%]<small>LO能力の何%までをLOで使うか。純正相当なら75%。大容量ポンプ＋抵抗なら50〜60%にして、LO流量は実測を</small></label><input id="sf" type="number" value="75" step="5"></div>
+        <div class="row logIn"><label>全開時 Inj デューティ [%]<small>ログ値。最大トルク付近・最大ブースト</small></label><input id="logDuty" type="number" value="" placeholder="例 55" step="1"></div>
+        <div class="row logIn"><label>そのときの回転数 [rpm]</label><input id="logRpm" type="number" value="" placeholder="例 5500" step="100"></div>
+      </div>
+    </div>
+
+    <details>
+      <summary>詳細設定（必要なときだけ）</summary>
+
+      <label class="chk"><input id="useCur" type="checkbox">今の LINK 設定値と比べる</label>
+      <div id="curBox" class="cols hide">
+        <div class="row"><label>今の RPM XOver [rpm]</label><input id="curRpm" type="number" value="2000" step="100"></div>
+        <div class="row"><label>今の Inj デューティ XOver [%]</label><input id="curDuty" type="number" value="8" step="0.5"></div>
+      </div>
+
+      <h3>インジェクター・HI 能力・グラフ範囲</h3>
+      <div class="cols">
+        <div class="row"><label>インジェクター流量の測定燃圧 [kPa]<small>空欄なら燃圧（REG設定）と同じとみなす</small></label><input id="injP" type="number" value="" placeholder="例 300" step="5"></div>
+        <div class="row"><label>HI 時ポンプ流量 [L/h]<small>同じ吐出圧での値。空欄ならチェックしない</small></label><input id="hi" type="number" value="" placeholder="例 227" step="1"></div>
+        <div class="row"><label>レブリミット [rpm]</label><input id="redline" type="number" value="7500" step="100"></div>
+      </div>
+
+      <label class="chk"><input id="useEst" type="checkbox">LO流量を実測できないので、抵抗値から推定する（HI流量が必要）</label>
+      <div id="estBox" class="cols hide">
+        <div class="row"><label>HI時ポンプ電圧 [V]</label><input id="vbat" type="number" value="13.5" step="0.1"></div>
+        <div class="row"><label>ポンプ電流 [A]<small>使用燃圧付近での値</small></label><input id="amp" type="number" value="9" step="0.5"></div>
+        <div class="row"><label>直列抵抗 [Ω]</label><input id="res" type="number" value="0.75" step="0.05"></div>
+        <div class="row"><label>吐出ゼロ電圧 V0 [V]<small>この電圧以下で吐出しない目安</small></label><input id="v0" type="number" value="4" step="0.5"></div>
+      </div>
+
+      <label class="chk"><input id="useEng" type="checkbox">まだログがないので、全開時の消費量を排気量から推定する</label>
+      <div id="engBox" class="cols hide">
+        <div class="row"><label>排気量 [cc]</label><input id="disp" type="number" value="1600" step="10"></div>
+        <div class="row"><label>体積効率 VE [%]<small>最大トルク付近の想定</small></label><input id="ve" type="number" value="90" step="1"></div>
+        <div class="row"><label>全開時 目標空燃比</label><input id="afr" type="number" value="11.8" step="0.1"></div>
+        <div class="row"><label>吸気温度 [°C]</label><input id="iat" type="number" value="40" step="1"></div>
+      </div>
+      <p class="note">LINK の2速制御は「RPM XOver か Inj デューティ XOver のどちらかを超えたらHI」として計算しています。お使いのファームウェアのヘルプで動作を確認してください。</p>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>計算結果</h2>
+    <div class="big">
+      <div class="kpi"><div class="k">推奨 Inj デューティ XOver</div><div class="v" id="oDuty">–<span>%</span></div><div class="n" id="oDutyN"></div></div>
+      <div class="kpi"><div class="k">推奨 RPM XOver</div><div class="v" id="oRpm">–<span>rpm</span></div><div class="n" id="oRpmN"></div></div>
+    </div>
+    <div class="msgs" id="msgs"></div>
+    <table id="tbl"></table>
+  </div>
+
+  <div class="card">
+    <h2>Inj デューティ vs 燃料消費量（最大ブースト時）</h2>
+    <p class="note" style="margin:-6px 0 6px">消費量の直線が「LO × 安全率」と交わる点が推奨 Duty XOver です。詳細設定で「今の LINK 設定値と比べる」をオンにすると、今の設定も縦線で表示します。</p>
+    <div class="chart" id="chD"></div>
+  </div>
+
+  <div class="card">
+    <h2>回転数 vs 全開時の燃料消費量（最大ブースト）</h2>
+    <p class="note" style="margin:-6px 0 6px">全開時の消費量が「LO × 安全率」と交わる回転数が推奨 RPM XOver です。</p>
+    <div class="chart" id="ch"></div>
+  </div>
+
+  <div class="card formula">
+    <h2>計算式</h2>
+    <p class="note" style="margin:-4px 0 8px">【 】は入力欄の名前です。流量は L/h → cc/min を ×1000÷60 で換算して計算しています。</p>
+    <ol>
+      <li><b>ポンプ吐出圧</b>（LO流量を入れる圧力）<br>
+        ブースト連動：<code>吐出圧 = 【燃圧（REG設定）】 + 【最大ブースト】</code><br>
+        固定圧：<code>吐出圧 = 【燃圧（REG設定）】</code><br>
+        ポンプは吐出圧が高いほど流量が落ちるので、最大ブースト時が一番厳しい条件です。</li>
+      <li><b>インジェクター差圧</b><br>
+        ブースト連動：<code>差圧 = 【燃圧（REG設定）】</code><br>
+        固定圧：<code>差圧 = 【燃圧（REG設定）】 − 【最大ブースト】</code></li>
+      <li><b>インジェクター実流量</b><br>
+        <code>実流量 = 【インジェクター流量】 × √(差圧 ÷ 【インジェクター流量の測定燃圧】)</code><br>
+        【インジェクター流量の測定燃圧】が空欄なら【燃圧（REG設定）】と同じとみなします。</li>
+      <li><b>推奨 Inj デューティ XOver</b><br>
+        <code>推奨Duty = 【安全率】 × 【LO 時ポンプ流量】 ÷ (実流量 × 【気筒数】)</code><br>
+        燃料消費量は「Duty × 実流量 × 気筒数」なので、これが LO能力 × 安全率 に等しくなる Duty です。</li>
+      <li><b>推奨 RPM XOver</b><br>
+        <code>推奨回転数 = 【そのときの回転数】 × 推奨Duty ÷ 【全開時 Inj デューティ】</code><br>
+        全開時の Duty は回転数にほぼ比例するので、ログの1点から比例で求めます。1回転あたりの燃料が一番多い最大トルク付近のログを使うと安全側になります。この回転数より上では急に全開にした瞬間に LO能力を超えるので、Duty 判定より先に HI へ入れておきます。</li>
+      <li><b>排気量から推定する場合</b>（詳細設定）<br>
+        <code>全開時の消費量 [cc/min] = 【排気量】/1000 × 【体積効率 VE】 × 回転数/2 × 1.204 × (101.3 + 【最大ブースト】)/101.3 × 293.15/(【吸気温度】 + 273.15) ÷ 【全開時 目標空燃比】 ÷ 0.74</code><br>
+        1.204 g/L は 20°C・大気圧の空気密度、0.74 g/cc はガソリンの密度です。この消費量が LO能力 × 安全率 に達する回転数を推奨回転数とします。</li>
+      <li><b>抵抗から LO流量を推定する場合</b>（詳細設定）<br>
+        <code>LO電圧 = 【HI時ポンプ電圧】 − 【ポンプ電流】 × 【直列抵抗】</code><br>
+        <code>LO流量 = 【HI 時ポンプ流量】 × (LO電圧 − 【吐出ゼロ電圧 V0】) ÷ (【HI時ポンプ電圧】 − 【吐出ゼロ電圧 V0】)</code><br>
+        <code>抵抗の発熱 [W] = 【ポンプ電流】² × 【直列抵抗】</code><br>
+        燃圧が一定ならポンプ電流は電圧を下げてもほぼ変わらない、とみなした目安です。</li>
+    </ol>
+    <p class="note">LINK の Inj デューティが無効噴射時間を含む値なら、実際の燃料量は計算より少なくなり、結果は安全側（早めにHI）になります。最終的には燃圧（できれば差圧）をログして、LO固定で燃圧が落ち始める点より十分手前で切り替わることを実車で確認してください。</p>
+  </div>
+</div>
+
+	<script is:inline>
+(function(){
+  var KGF=98.0665;
+  var $=function(id){return document.getElementById(id);};
+  var raw=function(id){return $(id).value.trim();};
+  var num=function(id){var v=parseFloat(raw(id));return isFinite(v)?v:0;};
+  var opt=function(id){var v=parseFloat(raw(id));return isFinite(v)?v:null;};
+  var lph=function(ccm){return ccm*60/1000;};
+  var ccm=function(l){return l*1000/60;};
+  var f=function(v,d){if(!isFinite(v))return '–';return v.toLocaleString('ja-JP',{minimumFractionDigits:d||0,maximumFractionDigits:d||0});};
+  var kgf=function(k){return '≈ '+f(k/KGF,2)+' kgf/cm²';};
+  function badge(r,S){
+    if(!isFinite(r))return '';
+    if(r<=S)return '<span class="badge b-ok">OK</span>';
+    if(r<=1)return '<span class="badge b-warn">余裕少</span>';
+    return '<span class="badge b-ng">燃圧低下</span>';
+  }
+
+  function calc(){
+    var N=Math.max(1,num('cyl')), qr=num('injFlow'), pb=num('baseP'), pr=opt('injP')||pb||300,
+        ref=$('regType').value==='ref', bmax=num('boost'), S=num('sf')/100,
+        useEst=$('useEst').checked, useEng=$('useEng').checked,
+        hiL=opt('hi'), red=Math.max(1000,num('redline')), useCur=$('useCur').checked, curR=useCur?opt('curRpm'):null, curD=useCur?opt('curDuty'):null;
+
+    var pPump=ref?pb+bmax:pb, dP=ref?pb:pb-bmax;
+    var qInj=dP>0?qr*Math.sqrt(dP/pr):0, qAll=qInj*N;
+    $('cv-baseP').textContent=kgf(pb); $('cv-boost').textContent=kgf(bmax);
+    $('loPLabel').textContent='吐出圧 '+f(pPump)+' kPa での値'+(ref?'（REG＋最大ブースト）':'');
+
+    var msgs=[], hi=hiL!==null?ccm(hiL):null, lo, est=null;
+    if(useEst){
+      if(hi===null){msgs.push(['ng','抵抗から推定するには、詳細設定の「HI 時ポンプ流量」を入力してください。']);lo=0;}
+      else{
+        var V=num('vbat'),I=num('amp'),R=num('res'),V0=num('v0'),vlo=V-I*R;
+        var k=(V-V0)>0?Math.max(0,(vlo-V0)/(V-V0)):0; lo=hi*k; est={vlo:vlo,k:k,heat:I*I*R,V0:V0};
+      }
+    }else lo=ccm(num('lo'));
+
+    // 全開時の消費量 [cc/min per rpm]
+    var perRpm=0, srcTxt='';
+    if(useEng){
+      var disp=num('disp'),ve=num('ve')/100,afr=num('afr')||14.7,iat=num('iat');
+      perRpm=disp/1000*ve*0.5*1.204*((101.3+bmax)/101.3)*(293.15/(iat+273.15))/afr/0.74;
+      srcTxt='排気量からの推定';
+    }else{
+      var lD=opt('logDuty'), lR=opt('logRpm');
+      if(lD&&lR&&lD>0&&lR>0){perRpm=qAll*lD/100/lR; srcTxt='ログ（'+f(lD)+'% @ '+f(lR)+' rpm）';}
+      else perRpm=null;
+    }
+
+    var dX=qAll>0?S*lo/qAll:0, dShow=Math.min(100,Math.floor(dX*200)/2);
+    var rX=perRpm>0?S*lo/perRpm:Infinity, hasRpm=perRpm!==null&&perRpm>0, rShow=Math.floor(rX/100)*100;
+
+    $('oDuty').innerHTML=f(dShow,1)+'<span>%</span>';
+    $('oDutyN').textContent='これ以下のDutyならLO能力の '+f(S*100)+'% 以内（吐出圧 '+f(pPump)+' kPa 時）';
+    if(!hasRpm){
+      $('oRpm').innerHTML='–<span>rpm</span>';
+      $('oRpmN').textContent='全開時の Inj デューティと回転数（ログ値）を入れると計算します。';
+    }else if(rX>=red){
+      $('oRpm').innerHTML=f(Math.floor(red/100)*100)+'<span>rpm</span>';
+      $('oRpmN').textContent='レブまで全開でもLOで足ります（計算上の限界 '+f(rShow)+' rpm）。レブ付近か少し低めに設定。';
+    }else{
+      $('oRpm').innerHTML=f(rShow)+'<span>rpm</span>';
+      $('oRpmN').textContent='全開時の消費量がLO能力の '+f(S*100)+'% に達する回転数（'+srcTxt+'）';
+    }
+
+    if(qInj<=0)msgs.push(['ng','最大ブースト時にインジェクター差圧がゼロ以下です。燃圧設定かレギュレーターの種類を確認してください。']);
+    if(!useEng&&num('logDuty')>95)msgs.push(['warn','ログの全開Dutyが95%を超えています。インジェクター容量に余裕がありません。']);
+    var fRed=hasRpm?perRpm*red:0;
+    if(hasRpm&&hi!==null&&fRed>S*hi)msgs.push([fRed>hi?'ng':'warn','HIでもポンプ能力に余裕が少ない／不足しています（レブ全開の推定消費 '+f(lph(fRed),1)+' L/h、HI能力 '+f(hiL,1)+' L/h）。']);
+    if(est){
+      if(est.vlo<=est.V0)msgs.push(['ng','推定LO電圧 '+f(est.vlo,1)+' V が吐出ゼロ電圧以下です。抵抗が大きすぎるか、ポンプ電流が大きすぎます。']);
+      msgs.push(['info','推定LO電圧 '+f(est.vlo,1)+' V、LO流量はHIの約 '+f(est.k*100)+'%（'+f(lph(lo),1)+' L/h）、抵抗の発熱 '+f(est.heat,1)+' W。']);
+    }
+
+    var rows=[
+      ['インジェクター実流量（最大ブースト時）', f(qInj)+' cc/min × '+N+'本 = '+f(lph(qAll),1)+' L/h'],
+      ['ポンプ吐出圧（最大ブースト時）', f(pPump)+' kPa（'+f(pPump/KGF,2)+' kgf/cm²）'],
+      ['LO能力 / 安全率をかけた値', f(lph(lo),1)+' / '+f(lph(lo*S),1)+' L/h']
+    ];
+    var rD=null,rR=null;
+    if(curD!==null&&lo>0){rD=curD/100*qAll/lo;rows.push(['今の Duty XOver（'+f(curD,1)+'%）での消費量 / LO能力',f(rD*100)+'% '+badge(rD,S)]);}
+    if(curR!==null&&lo>0&&hasRpm){rR=perRpm*curR/lo;rows.push(['今の RPM XOver（'+f(curR)+' rpm）全開時の消費量 / LO能力',f(rR*100)+'% '+badge(rR,S)]);}
+    if(rD!==null&&rD>1)msgs.push(['ng','今の Inj デューティ XOver では、HIに切り替わる前にLO能力を超えて燃圧が落ちます。']);
+    if(rR!==null&&rR>1&&!(rD!==null&&rD>1))msgs.push(['warn','今の RPM XOver では全開時にLO能力を超えますが、Duty条件が先に効けばHIに入ります。ただし急な全開ではポンプの立ち上がりが遅れることがあります。']);
+    $('msgs').innerHTML=msgs.map(function(m){return '<div class="m-'+m[0]+'">'+m[1]+'</div>';}).join('');
+    $('tbl').innerHTML=rows.map(function(r){return '<tr><td>'+r[0]+'</td><td class="r">'+r[1]+'</td></tr>';}).join('');
+
+    // グラフ1：Duty vs 消費量
+    var dx=[],dU=[],dL=[],dLS=[],dH=[];
+    for(var p=0;p<=100;p+=1){dx.push(p);dU.push(lph(qAll*p/100));dL.push(lph(lo));dLS.push(lph(lo*S));if(hi!==null)dH.push(lph(hi));}
+    var dSeries=[{n:'消費量（Duty × 実流量 × 本数）',c:'--c-use',y:dU},{n:'LO能力',c:'--c-lo',y:dL},{n:'LO × 安全率',c:'--c-los',y:dLS,d:1}];
+    if(hi!==null)dSeries.splice(1,0,{n:'HI能力',c:'--c-hi',y:dH});
+    var dVl=[{x:dShow,t:'推奨 '+f(dShow,1)+'%',c:'--c-mk'}];
+    if(curD!==null&&curD>=0&&curD<=100)dVl.push({x:curD,t:'今の設定 '+f(curD,1)+'%',c:'--c-mk2'});
+    if(!useEng&&num('logDuty')>0)dVl.push({x:Math.min(100,num('logDuty')),t:'ログ全開 '+f(num('logDuty'))+'%',c:'--c-use'});
+    chart($('chD'),{xs:dx,xLabel:'Inj デューティ [%]',yLabel:'流量 [L/h]',series:dSeries,vl:dVl});
+
+    // グラフ2：回転数 vs 全開消費量
+    var xs=[],sW=[],sL=[],sLS=[],sH=[];
+    for(var r=0;r<=red+1e-9;r+=100){xs.push(r);sW.push(lph(Math.min(perRpm*r,qAll)));sL.push(lph(lo));sLS.push(lph(lo*S));if(hi!==null)sH.push(lph(hi));}
+    var series=(hasRpm?[{n:'全開時の消費量',c:'--c-use',y:sW}]:[]).concat([{n:'LO能力',c:'--c-lo',y:sL},{n:'LO × 安全率',c:'--c-los',y:sLS,d:1}]);
+    if(hi!==null)series.splice(hasRpm?1:0,0,{n:'HI能力',c:'--c-hi',y:sH});
+    var vl=[];
+    if(rX<red)vl.push({x:rShow,t:'推奨 '+f(rShow),c:'--c-mk'});
+    if(curR!==null&&curR>0&&curR<=red)vl.push({x:curR,t:'今の設定 '+f(curR),c:'--c-mk2'});
+    if(!useEng&&num('logRpm')>0&&num('logRpm')<=red)vl.push({x:num('logRpm'),t:'ログ '+f(num('logRpm')),c:'--c-use'});
+    chart($('ch'),{xs:xs,xLabel:'回転数 [rpm]',yLabel:'流量 [L/h]',series:series,vl:vl});
+  }
+
+  function step(range,count){
+    if(range<=0)return 1;
+    var raw=range/count, mag=Math.pow(10,Math.floor(Math.log10(raw))), n=raw/mag;
+    return (n<1.5?1:n<3?2:n<7?5:10)*mag;
+  }
+  function chart(el,o){
+    var W=640,H=320,m={l:54,r:14,t:14,b:42};
+    var x0=o.xs[0],x1=o.xs[o.xs.length-1]; if(x1===x0)x1=x0+1;
+    var ym=0; o.series.forEach(function(s){s.y.forEach(function(v){if(isFinite(v)&&v>ym)ym=v;});});
+    ym=ym*1.08||1; var ys=step(ym,5); ym=Math.ceil(ym/ys)*ys;
+    var X=function(x){return m.l+(x-x0)/(x1-x0)*(W-m.l-m.r);};
+    var Y=function(y){return H-m.b-Math.min(y,ym)/ym*(H-m.t-m.b);};
+    var g='';
+    for(var y=0;y<=ym+1e-9;y+=ys){g+='<line class="grid-l" x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+Y(y)+'" y2="'+Y(y)+'"/><text class="tick" x="'+(m.l-6)+'" y="'+(Y(y)+4)+'" text-anchor="end">'+Math.round(y)+'</text>';}
+    var xs=step(x1-x0,6);
+    for(var x=Math.ceil(x0/xs)*xs;x<=x1+1e-9;x+=xs){g+='<line class="grid-l" x1="'+X(x)+'" x2="'+X(x)+'" y1="'+m.t+'" y2="'+(H-m.b)+'"/><text class="tick" x="'+X(x)+'" y="'+(H-m.b+15)+'" text-anchor="middle">'+Math.round(x)+'</text>';}
+    g+='<line class="axis" x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+(H-m.b)+'" y2="'+(H-m.b)+'"/><line class="axis" x1="'+m.l+'" x2="'+m.l+'" y1="'+m.t+'" y2="'+(H-m.b)+'"/>';
+    o.series.forEach(function(s){
+      var d=''; s.y.forEach(function(v,i){if(!isFinite(v))return; d+=(d?'L':'M')+X(o.xs[i]).toFixed(1)+','+Y(v).toFixed(1);});
+      g+='<path d="'+d+'" fill="none" style="stroke:var('+s.c+')" stroke-width="2.4"'+(s.d?' stroke-dasharray="6 4"':'')+'/>';
+    });
+    o.vl.forEach(function(v,i){
+      g+='<line x1="'+X(v.x)+'" x2="'+X(v.x)+'" y1="'+m.t+'" y2="'+(H-m.b)+'" style="stroke:var('+v.c+')" stroke-width="1.6" stroke-dasharray="3 3"/>';
+      var R=X(v.x)>W-130;
+      g+='<text x="'+(X(v.x)+(R?-4:4))+'" y="'+(m.t+12+i*14)+'" text-anchor="'+(R?'end':'start')+'" style="fill:var('+v.c+')" font-size="13">'+v.t+'</text>';
+    });
+    g+='<text class="lab" x="'+((m.l+W-m.r)/2)+'" y="'+(H-6)+'" text-anchor="middle">'+o.xLabel+'</text>';
+    g+='<text class="lab" transform="translate(13,'+((m.t+H-m.b)/2)+') rotate(-90)" text-anchor="middle">'+o.yLabel+'</text>';
+    var lg=o.series.map(function(s){return '<span><i class="'+(s.d?'d':'')+'" style="border-color:var('+s.c+')"></i>'+s.n+'</span>';}).join('');
+    el.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+o.yLabel+'">'+g+'</svg><div class="legend">'+lg+'</div>';
+  }
+
+  function toggles(){
+    var e=$('useEst').checked, g=$('useEng').checked;
+    $('estBox').className=e?'cols':'cols hide'; $('loRow').style.display=e?'none':'';
+    $('engBox').className=g?'cols':'cols hide';
+    $('curBox').className=$('useCur').checked?'cols':'cols hide';
+    var li=document.querySelectorAll('#fpx .logIn'); for(var i=0;i<li.length;i++)li[i].style.display=g?'none':'';
+    calc();
+  }
+  $('useEst').addEventListener('change',toggles);
+  $('useEng').addEventListener('change',toggles);
+  $('useCur').addEventListener('change',toggles);
+  var ins=document.querySelectorAll('#fpx input,#fpx select');
+  for(var i=0;i<ins.length;i++){ins[i].addEventListener('input',calc);}
+  toggles();
+})();
+</script>
+</Base>
+
+<style is:global>
+#fpx{
+  --card:var(--bg);--ink:var(--fg);--sub:var(--muted);--line:var(--border);--field:var(--chip-bg);--acc:var(--accent);
+  --ok:#1a7f37;--warn:#b26b00;--ng:#cf222e;
+  --c-hi:#1f6feb;--c-lo:#e8590c;--c-los:#f2a46b;--c-use:#7048e8;--c-mk:#2b8a3e;--c-mk2:#c92a2a;
+  line-height:1.65;font-size:1rem;
+}
+@media (prefers-color-scheme:dark){
+  #fpx{--ok:#3fb950;--warn:#d29922;--ng:#f85149;
+    --c-hi:#58a6ff;--c-lo:#ff922b;--c-los:#a9643a;--c-use:#b197fc;--c-mk:#51cf66;--c-mk2:#ff6b6b;}
+}
+#fpx *{box-sizing:border-box}
+#fpx h2{font-size:1.15em;margin:0 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+#fpx h3{font-size:.95em;margin:14px 0 4px;color:var(--sub)}
+#fpx .lead{color:var(--sub);margin:0 0 18px;font-size:.95em}
+#fpx .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-top:14px}
+#fpx .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0 28px}
+#fpx .row{display:grid;grid-template-columns:1fr 130px;align-items:center;gap:8px;margin:7px 0}
+#fpx .row label{font-size:1em}
+#fpx .row small{display:block;color:var(--sub);font-size:.84em;line-height:1.35;margin-top:2px}
+#fpx input,#fpx select{width:100%;padding:7px 9px;font-size:1em;border:1px solid var(--line);border-radius:6px;background:var(--field);color:var(--ink);font-family:inherit}
+#fpx input{text-align:right}
+#fpx input[type=checkbox]{width:auto;margin-right:6px;vertical-align:middle}
+#fpx input:focus,#fpx select:focus{outline:2px solid var(--acc);outline-offset:-1px}
+#fpx details{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+#fpx summary{cursor:pointer;font-weight:600;font-size:1em}
+#fpx .chk{font-size:1em;margin:12px 0 2px;display:block}
+#fpx .hide{display:none}
+#fpx .big{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-bottom:14px}
+#fpx .kpi{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--field)}
+#fpx .kpi .k{font-size:.92em;color:var(--sub)}
+#fpx .kpi .v{font-size:2.1em;font-weight:700;font-variant-numeric:tabular-nums}
+#fpx .kpi .v span{font-size:.5em;font-weight:500;margin-left:4px}
+#fpx .kpi .n{font-size:.88em;color:var(--sub)}
+#fpx table{width:100%;border-collapse:collapse;font-size:.95em;font-variant-numeric:tabular-nums}
+#fpx td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+#fpx td.r{text-align:right;white-space:nowrap}
+#fpx .badge{display:inline-block;padding:1px 8px;border-radius:99px;font-size:.82em;font-weight:600;color:#fff}
+#fpx .b-ok{background:var(--ok)}#fpx .b-warn{background:var(--warn)}#fpx .b-ng{background:var(--ng)}
+#fpx .msgs div{padding:8px 10px;border-radius:6px;margin:6px 0;font-size:.95em;border-left:4px solid}
+#fpx .m-warn{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 10%,transparent)}
+#fpx .m-ng{border-color:var(--ng);background:color-mix(in srgb,var(--ng) 10%,transparent)}
+#fpx .m-info{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 8%,transparent)}
+#fpx .chart svg{width:100%;height:auto;display:block}
+#fpx .chart .grid-l{stroke:var(--line);stroke-width:1}
+#fpx .chart .axis{stroke:var(--sub);stroke-width:1}
+#fpx .chart .tick{fill:var(--sub);font-size:13px}
+#fpx .chart .lab{fill:var(--sub);font-size:14px}
+#fpx .legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.9em;color:var(--sub);margin-top:4px}
+#fpx .legend i{display:inline-block;width:18px;height:0;border-top:3px solid;vertical-align:middle;margin-right:5px}
+#fpx .legend i.d{border-top-style:dashed}
+#fpx .formula{font-size:.95em}
+#fpx .formula code{background:var(--field);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:.9em}
+#fpx .formula li{margin:5px 0}
+#fpx .note{color:var(--sub);font-size:.84em}
+@media (max-width:480px){#fpx .row{grid-template-columns:1fr 110px}#fpx .kpi .v{font-size:1.8em}}
+</style>
