@@ -3,7 +3,7 @@ title: "PFC Hackerとは？PowerFCをPC接続する方法とUSB問題の解決�
 date: 2026-02-14
 summary: "PFC Hackerとは？Power FC をPCと接続するための通信アダプタです。"
 magazine:
-  - "（未分類）"
+  - "アペックス パワーFC 関連"
 tags:
   - "通信"
   - "PFC"

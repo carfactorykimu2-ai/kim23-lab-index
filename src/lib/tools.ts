@@ -33,6 +33,7 @@ export const tools: Tool[] = [
 		title: '燃料ポンプ LO/HI 切替計算',
 		description: 'LINK ECU の燃料ポンプ2速制御（RPM XOver / Inj デューティ XOver）を、インジェクター流量・燃圧・LO時ポンプ流量から計算するツール。',
 		articles: [
+			'misc-linkecu-008f4e',
 			'misc-751ad4',
 			'altoworks-linkecu-step19-f71505',
 			'esse-linkecu-step19-b57fa5',
