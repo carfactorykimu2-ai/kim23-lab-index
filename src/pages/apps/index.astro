@@ -1,0 +1,20 @@
+---
+import Base from '../../layouts/Base.astro';
+import { apps } from '../../lib/apps';
+
+const base = import.meta.env.BASE_URL;
+---
+<Base title="Apps" description="自作の CAN / BLE 機器とつないで操作する、スマホ向けWebアプリの置き場。">
+	<h1>Apps</h1>
+	<p class="muted">自作の CAN I/O やロガーなどの実機とつないで操作する、スマホ向けのWebアプリです。ホーム画面に追加しておくと1タップで起動できます。</p>
+
+	<h2>公開中</h2>
+	<ul>
+		{apps.map((app) => (
+			<li>
+				<a href={`${base}apps/${app.slug}/`}><strong>{app.title}</strong></a>
+				<div class="muted">{app.description}</div>
+			</li>
+		))}
+	</ul>
+</Base>
