@@ -64,6 +64,7 @@
   <h1>CAN I/O 仮想DI</h1>
   <button id="btnConn" class="primary">接続</button>
 </header>
+<div style="text-align:right;margin:-4px 0 8px"><button id="btnConnAll" style="font-size:12px;padding:6px 10px">機器が一覧に出ない時：全機器から探す</button></div>
 
 <div id="noBle" class="warn" hidden>
   このブラウザは Web Bluetooth に対応していません。<br>
@@ -72,6 +73,15 @@
 </div>
 
 <div id="status" class="status">● 未接続<small>「接続」を押して CAN_IO_XIAO を選んでください</small></div>
+
+<div id="pinBox" class="card" hidden style="margin-bottom:10px;border-color:#0891b2">
+  <div id="pinMsg" style="font-weight:700;margin-bottom:8px">PIN（6桁）を入力してください</div>
+  <div style="display:flex;gap:8px">
+    <input id="pinIn" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" style="font-size:22px;letter-spacing:6px;text-align:center">
+    <button id="pinOk" class="primary" style="white-space:nowrap">OK</button>
+    <button id="pinCancel" style="white-space:nowrap">中止</button>
+  </div>
+</div>
 
 <div id="tiles" class="grid"></div>
 
@@ -83,20 +93,11 @@
     <button id="btnExport">JSON 書き出し</button>
     <button id="btnImport">JSON 読み込み</button>
     <button id="btnReset" class="danger">初期値に戻す</button>
+    <button id="btnForgetPin">保存した PIN を消す</button>
     <input id="fileImport" type="file" accept="application/json,.json" hidden>
-  </div>
-  <div class="note">
-    <b>Momentary</b>：押している間だけ ON（bit7）／ <b>Toggle</b>：押すたびに ON/OFF（bit6）／ <b>Accumulator</b>：＋−で 0〜最大値（bit5〜0、最大 63）。<br>
-    設定はこの端末のブラウザに保存されます（アプリの JSON と同じ形式で書き出し・読み込み可）。<br>
-    <b>LINK で読む位置</b>：DI<i>n</i> は Byte(<i>n</i>−1)。Byte の先頭 bit の Start = Byte×8、Momentary は Start+0 / Toggle は Start+1（Width 1）、Accumulator は Start+2（Width 6）。
   </div>
 </div>
 
-<div class="note">
-  ・送信：操作した瞬間＋変化がなくても 1 秒ごと（ハートビート）。モジュールは 2 秒届かないか BLE が切れると全 0 にします。<br>
-  ・画面を消したり別のアプリに切り替えると送信が止まり、2 秒後に全 0 になります（安全側）。使用中は画面を点けたままにしてください。<br>
-  ・CAN 出力：CAN_IO_XIAO は 0x6E2（PCUI で変更可）、CAN_GPS_LOGGER は 1023（0x3FF）。DI1 = Byte0 〜 DI8 = Byte7。
-</div>
 
 <div id="toast" class="toast"></div>
 
@@ -105,6 +106,8 @@
   'use strict';
   const NUS = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
   const DI_VALUE = '6e400005-b5a3-f393-e0a9-e50e24dcca9e';
+  const AUTH = '6e400007-b5a3-f393-e0a9-e50e24dcca9e';
+  const VDI_CFG = '6e400008-b5a3-f393-e0a9-e50e24dcca9e'; // DI の設定を機器に保存（FW 1.3 以降。無ければ端末に保存）   // PIN 認証（FW 1.2 以降。無ければ認証なしで使う）
   const CH = 8, MAXMAX = 63, HEARTBEAT_MS = 1000;
   const STORE_KEY = 'canio_vdi_cfg_v1';
   const MODES = { momentary: 'Momentary', toggle: 'Toggle', accumulator: 'Accumulator' };
@@ -145,6 +148,10 @@
   const values = () => Array.from({ length: CH }, (_, i) => byteFor(i));
 
   // ---- BLE ----
+  let authChr = null, authInfo = '', cfgChr = null;
+  // GATT は同時に 1 操作だけなので、全部この順番待ちに通す
+  let gattChain = Promise.resolve();
+  const gatt = fn => { const r = gattChain.then(fn, fn); gattChain = r.catch(() => {}); return r; };
   let device = null, chr = null, connected = false, echo = null, lastEcho = 0, writes = 0, writeErr = 0;
   let busy = false, pending = false, hbTimer = null, userDisconnect = false;
 
@@ -156,9 +163,10 @@
       do {
         pending = false;
         const data = new Uint8Array(values());
-        if (chr.writeValueWithoutResponse && chr.properties.writeWithoutResponse) await chr.writeValueWithoutResponse(data);
-        else if (chr.writeValueWithResponse) await chr.writeValueWithResponse(data);
-        else await chr.writeValue(data);
+        const c = chr;
+        if (c.writeValueWithoutResponse && c.properties.writeWithoutResponse) await gatt(() => c.writeValueWithoutResponse(data));
+        else if (c.writeValueWithResponse) await gatt(() => c.writeValueWithResponse(data));
+        else await gatt(() => c.writeValue(data));
         writes++;
       } while (pending && chr);
     } catch (e) {
@@ -169,30 +177,109 @@
   }
   const send = () => { writeNow(); };
 
-  async function connect() {
+  async function connect(all) {
     if (!navigator.bluetooth) return toast('このブラウザは Web Bluetooth 非対応です');
     try {
-      device = await navigator.bluetooth.requestDevice({
+      // all=true は名前・UUID で絞らずに周囲の BLE 機器を全部出す（絞り込み条件の問題か、電波が届いていないかの切り分け用）
+      device = await navigator.bluetooth.requestDevice(all ? { acceptAllDevices: true, optionalServices: [NUS] } : {
         filters: [{ namePrefix: 'CAN_IO' }, { name: 'CAN_GPS_LOGGER_VER4' }, { services: [NUS] }],
         optionalServices: [NUS],
       });
-    } catch (e) { if (e && e.name !== 'NotFoundError') toast('機器の選択に失敗: ' + e.message); return; }
+    } catch (e) {
+      if (e && e.name === 'NotFoundError' && /cancel/i.test(e.message || '')) return;   // 自分でキャンセルした
+      setStatus('● 機器を選べませんでした', 'ng', `${e && e.name}: ${e && e.message}（Bluetooth・位置情報が ON か、Chrome に「付近のデバイス」の許可があるか確認）`);
+      return;
+    }
     device.addEventListener('gattserverdisconnected', onDisconnected);
     await openGatt();
   }
 
+  // ---- PIN 認証 ----
+  const pinKey = () => 'canio_vdi_pin_' + (device && (device.id || device.name) || '');
+  const loadPin = () => { try { return localStorage.getItem(pinKey()); } catch (e) { return null; } };
+  const savePin = v => { try { if (v == null) localStorage.removeItem(pinKey()); else localStorage.setItem(pinKey(), v); } catch (e) { /* 保存できなくても毎回入力すれば使える */ } };
+  function askPin(text) {
+    return new Promise(resolve => {
+      $('pinMsg').textContent = text; $('pinIn').value = ''; $('pinBox').hidden = false;
+      setTimeout(() => $('pinIn').focus(), 50);
+      const done = v => { $('pinBox').hidden = true; $('pinOk').onclick = $('pinCancel').onclick = $('pinIn').onkeydown = null; resolve(v); };
+      $('pinOk').onclick = () => { const v = $('pinIn').value.trim(); if (!/^\d{6}$/.test(v)) { $('pinMsg').textContent = '6 桁の数字で入力してください'; return; } done(v); };
+      $('pinCancel').onclick = () => done(null);
+      $('pinIn').onkeydown = ev => { if (ev.key === 'Enter') $('pinOk').onclick(); };
+    });
+  }
+  const authRead = async () => (await authChr.readValue()).getUint8(0);   // 0 未認証 / 1 OK / 2 ロック中 / 3 PIN不要
+  async function doAuth() {
+    if (!authChr) { authInfo = ''; return; }               // 古いファーム・CAN_GPS_LOGGER は認証なし
+    let st = await step('⑥ PIN 状態の確認', authRead(), 5000);
+    if (st === 3) { authInfo = 'PIN なし'; return; }
+    if (st === 1) { authInfo = 'PIN 認証済み'; return; }
+    if (st === 2) throw new Error('ロック中です。しばらく待ってから「接続」を押してください');
+    let pin = loadPin(), msgText = 'PIN（6桁）を入力してください';
+    for (;;) {
+      if (!pin) {
+        setStatus('● PIN を入力してください', '', device.name || '');
+        pin = await askPin(msgText);
+        if (pin == null) throw new Error('PIN の入力を中止しました');
+      }
+      const data = new TextEncoder().encode(pin);
+      await step('⑦ PIN 送信', authChr.writeValueWithResponse ? authChr.writeValueWithResponse(data) : authChr.writeValue(data), 5000);
+      st = await step('⑦ PIN 確認', authRead(), 5000);
+      if (st === 1 || st === 3) { savePin(pin); authInfo = st === 1 ? 'PIN 認証済み' : 'PIN なし'; return; }
+      savePin(null);
+      if (st === 2) throw new Error('ロックされました。しばらく待ってから「接続」を押してください');
+      pin = null; msgText = 'PIN が違います。もう一度入力してください';
+    }
+  }
+
+  // ---- DI 設定を機器に保存・読み出し ----
+  const M2C = { momentary: 'm', toggle: 't', accumulator: 'a' }, C2M = { m: 'momentary', t: 'toggle', a: 'accumulator' };
+  const cfgToJson = c => JSON.stringify({ v: 1, d: c.map(x => [M2C[x.mode], x.max, x.label]) });
+  async function readDeviceCfg() {
+    const v = await gatt(() => cfgChr.readValue());
+    const txt = new TextDecoder().decode(v.buffer);
+    if (!txt) return null;
+    const j = JSON.parse(txt);
+    if (!j || !Array.isArray(j.d)) return null;
+    return j.d.map(x => ({ mode: C2M[x[0]] || 'momentary', max: x[1], label: x[2] }));
+  }
+  async function writeDeviceCfg() {
+    if (!cfgChr || !connected) return false;
+    const data = new TextEncoder().encode(cfgToJson(saved));
+    const c = cfgChr;
+    await gatt(() => c.writeValueWithResponse ? c.writeValueWithResponse(data) : c.writeValue(data));
+    return true;
+  }
+
+  // どの段階で止まったか分かるように、各段階に制限時間をつけて表示する
+  const step = (label, p, ms = 10000) => {
+    setStatus(`● 接続中… ${label}`, '', device ? device.name || '' : '');
+    return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} が ${ms / 1000} 秒で終わりませんでした`)), ms))]);
+  };
   async function openGatt() {
     if (!device) return;
-    setStatus('● 接続中…', '', device.name || '');
     try {
-      const server = await device.gatt.connect();
-      const svc = await server.getPrimaryService(NUS);
-      chr = await svc.getCharacteristic(DI_VALUE);
+      const server = await step('① BLE 接続', device.gatt.connect(), 15000);
+      const svc = await step('② サービス取得（6E400001）', server.getPrimaryService(NUS));
+      chr = await step('③ DI 特性取得（6E400005）', svc.getCharacteristic(DI_VALUE));
+      authChr = null;
+      try { authChr = await step('③ PIN 特性取得（6E400007）', svc.getCharacteristic(AUTH), 5000); } catch (e) { /* 無ければ認証なしの機器 */ }
+      cfgChr = null;
+      try { cfgChr = await step('③ 設定特性取得（6E400008）', svc.getCharacteristic(VDI_CFG), 5000); } catch (e) { /* 無ければ端末に保存 */ }
       echo = null;
       if (chr.properties.notify) {
         chr.addEventListener('characteristicvaluechanged', ev => { echo = Array.from(new Uint8Array(ev.target.value.buffer)); lastEcho = Date.now(); renderTiles(); });
-        try { await chr.startNotifications(); } catch (e) { /* 通知が無くても送信はできる */ }
-        try { const v = await chr.readValue(); echo = Array.from(new Uint8Array(v.buffer)); lastEcho = Date.now(); } catch (e) { /* 読めなくてもよい */ }
+        try { await step('④ 通知の開始', chr.startNotifications(), 5000); } catch (e) { console.warn(e); /* 通知が無くても送信はできる */ }
+        try { const v = await step('⑤ 現在値の読み出し', chr.readValue(), 5000); echo = Array.from(new Uint8Array(v.buffer)); lastEcho = Date.now(); } catch (e) { console.warn(e); }
+      }
+      await doAuth();                                        // 認証が通るまで DI は送らない
+      let cfgMsg = '';
+      if (cfgChr) {                                          // 機器に保存された設定を使う（無ければ今の設定を機器に保存）
+        try {
+          const dc = await step('⑧ 設定の読み出し', readDeviceCfg(), 8000);
+          if (dc) { applySaved(dc, true); cfgMsg = '・設定を機器から読み込みました'; }
+          else { connected = true; await writeDeviceCfg(); connected = false; cfgMsg = '・設定を機器に保存しました'; }
+        } catch (e) { console.warn(e); cfgMsg = '・設定の読み出しに失敗（この端末の設定で動作）'; }
       }
       connected = true; userDisconnect = false;
       $('btnConn').textContent = '切断'; $('btnConn').classList.remove('primary'); $('btnConn').classList.add('danger');
@@ -200,16 +287,19 @@
       hbTimer = setInterval(send, HEARTBEAT_MS);
       send();
       requestWakeLock();
-      toast(`${device.name || '機器'} に接続しました`);
+      toast(`${device.name || '機器'} に接続しました${cfgMsg}`);
     } catch (e) {
-      chr = null; connected = false;
-      setStatus('● 接続できませんでした', 'ng', e.message + '（機器の電源・距離を確認して「接続」をもう一度）');
+      chr = null; connected = false; $('pinBox').hidden = true;
+      userDisconnect = true;                                 // 失敗後に自動で再接続を繰り返さない（PIN の総当たりにもならない）
+      try { if (device.gatt.connected) device.gatt.disconnect(); } catch (_) { /* 切れていてもよい */ }
+      const hint = /PIN|ロック/.test(e.message) ? '' : '（nRF Connect など他のアプリが接続中なら切断し、スマホの Bluetooth を一度 OFF→ON してから「接続」をもう一度）';
+      setStatus('● 接続できませんでした', 'ng', e.message + hint);
     }
     renderAll();
   }
 
   function onDisconnected() {
-    connected = false; chr = null; echo = null;
+    connected = false; chr = null; echo = null; cfgChr = null; authChr = null;
     clearInterval(hbTimer); hbTimer = null;
     state.forEach(s => { s.pressed = false; });      // 押しっぱなしの状態を残さない
     $('btnConn').textContent = '接続'; $('btnConn').classList.add('primary'); $('btnConn').classList.remove('danger');
@@ -246,7 +336,7 @@
     }
     const id = CAN_ID_BY_NAME(device && device.name);
     setStatus(`● 接続中：${device.name || '機器'}`, 'ok',
-      `CAN 0x${hex(id, 3)} に出力中 ・ 送信 ${writes} 回${writeErr ? ` ・ 送信失敗 ${writeErr}` : ''}${chr && chr.properties.notify ? ' ・ 機器の出力を確認中' : ''}`);
+      `${authInfo ? authInfo + ' ・ ' : ''}CAN 0x${hex(id, 3)} に出力中 ・ 送信 ${writes} 回${writeErr ? ` ・ 送信失敗 ${writeErr}` : ''}${chr && chr.properties.notify ? ' ・ 機器の出力を確認中' : ''}`);
   }
 
   function tileHtml(i) {
@@ -301,7 +391,6 @@
         <input data-set="label" data-i="${i}" value="${esc(c.label)}" maxlength="12" aria-label="DI${i + 1} の名前">
         <select data-set="mode" data-i="${i}">${Object.entries(MODES).map(([k, v]) => `<option value="${k}"${k === c.mode ? ' selected' : ''}>${v}</option>`).join('')}</select>
         <input data-set="max" data-i="${i}" type="number" min="1" max="63" value="${c.max}" ${c.mode === 'accumulator' ? '' : 'disabled'} aria-label="最大値">
-        <span class="can">CAN 0x${hex(id, 3)} / Byte${i} / Start ${i * 8}〜（M:${i * 8} T:${i * 8 + 1} Acc:${i * 8 + 2}・W6）${c.mode === 'accumulator' ? '' : '　最大値は Accumulator のみ'}</span>
       </div>`).join('');
     $('dirty').hidden = JSON.stringify(edit) === JSON.stringify(saved);
   }
@@ -359,22 +448,23 @@
     if (el.dataset.set === 'max') { const i = Number(el.dataset.i); el.value = edit[i].max; }
   });
 
-  function applySaved(next) {
+  function applySaved(next, fromDevice) {
     next = normCfg(next);
     next.forEach((c, i) => { if (c.mode !== saved[i].mode) state[i] = { pressed: false, on: false, acc: 0 }; // モードを変えた ch は状態をリセット
                              if (state[i].acc > c.max) state[i].acc = c.max; });
     saved = next; edit = saved.map(c => ({ ...c }));
     const ok = storeCfg(saved);
     renderAll(); send();
-    return ok;
+    if (fromDevice) return Promise.resolve(ok);
+    // 機器に保存（つながっていて、機器が対応している時）
+    return writeDeviceCfg().then(dev => dev ? 'device' : ok, () => 'devfail');
   }
-  $('btnSave').addEventListener('click', () => {
-    const ok = applySaved(edit);
-    toast(ok ? '保存しました' + (connected ? '（送信しました）' : '') : '保存しました（このブラウザでは端末への保存ができないため、閉じると戻ります）');
-  });
+  const savedToast = r => toast(r === 'device' ? '機器に保存しました' : r === 'devfail' ? '機器への保存に失敗しました（この端末には保存済み）'
+                                : r ? 'この端末に保存しました' : '保存しました（閉じると戻ります）');
+  $('btnSave').addEventListener('click', async () => { savedToast(await applySaved(edit)); });
   $('btnReset').addEventListener('click', () => {
     if (!confirm('DI 設定を初期値（全部 Momentary・最大 63）に戻して保存します。よろしいですか？')) return;
-    applySaved(defCfg()); toast('初期値に戻しました');
+    applySaved(defCfg()).then(r => toast(r === 'device' ? '初期値に戻して機器に保存しました' : '初期値に戻しました'));
   });
 
   // アプリ（can_realtime_app）と同じ JSON 形式 {"di1":{"mode","max","canId","byte"},…}。label はこのページ独自（アプリは無視）
@@ -395,14 +485,19 @@
     try {
       const j = JSON.parse(await f.text());
       const arr = Array.from({ length: CH }, (_, i) => j[`di${i + 1}`] || saved[i]);
-      applySaved(arr.map((x, i) => ({ ...saved[i], ...x })));
-      toast('JSON を読み込んで保存しました');
+      savedToast(await applySaved(arr.map((x, i) => ({ ...saved[i], ...x }))));
     } catch (e) { toast('JSON を読み込めませんでした: ' + e.message); }
   });
 
-  $('btnConn').addEventListener('click', () => { if (connected) disconnect(); else if (device && !device.gatt.connected && !userDisconnect) openGatt(); else connect(); });
+  $('btnForgetPin').addEventListener('click', () => {
+    let n = 0;
+    try { Object.keys(localStorage).filter(k => k.startsWith('canio_vdi_pin_')).forEach(k => { localStorage.removeItem(k); n++; }); } catch (e) { /* 何もしない */ }
+    toast(n ? '保存した PIN を消しました（次の接続で入力します）' : '保存した PIN はありません');
+  });
+  $('btnConnAll').addEventListener('click', () => { if (connected) disconnect(); userDisconnect = false; connect(true); });
+  $('btnConn').addEventListener('click', () => { if (connected) disconnect(); else if (device && !device.gatt.connected) { userDisconnect = false; openGatt(); } else connect(false); });
 
-  if (!navigator.bluetooth) { $('noBle').hidden = false; $('btnConn').disabled = true; }
+  if (!navigator.bluetooth) { $('noBle').hidden = false; $('btnConn').disabled = true; $('btnConnAll').disabled = true; }
   renderAll();
 })();
 </script>
