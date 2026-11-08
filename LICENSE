@@ -1,0 +1,53 @@
+Kim23 Test Laboratory 利用規約・ライセンス
+Copyright (c) 2026 Kim23 Test Laboratory (Kimu2). All rights reserved.
+
+このリポジトリおよび公開サイト（https://carfactorykimu2-ai.github.io/kim23-lab-index/）に含まれる
+ソースコード、ツール（Tools 以下の計算ツール・CAN I/O 仮想DI WebUI など）、文章、画像、データ
+（以下「本ソフトウェア等」）の利用条件を以下のとおり定めます。
+
+■ 1. 許可すること
+  - 個人が、非営利の目的で、本ソフトウェア等を閲覧・使用すること
+  - 個人が自分で使うために、手元で改変すること（改変したものの配布は不可）
+
+■ 2. 禁止すること（作者の書面による許可がある場合を除く）
+  - 本ソフトウェア等の全部または一部の再配布・再公開・転載
+    （改変の有無、有償・無償を問いません。他のリポジトリやサイト、アプリへの組み込みを含みます）
+  - 本ソフトウェア等を使った、または組み込んだ製品・サービスの販売など営利目的での利用
+  - 作者表示・本ライセンス表示の削除や改変
+  - 作者が作成したものと偽って公開すること
+
+  ※ 記事・ツールへのリンクや、出典を明記した上での紹介は自由です。
+
+■ 3. 無保証・免責
+  - 本ソフトウェア等は「現状のまま」提供され、正確性・完全性・安全性・特定の目的への適合性・
+    動作の継続など、明示・黙示を問わず一切の保証をしません。
+  - 本ソフトウェア等の利用、または利用できなかったことによって生じたいかなる損害
+    （車両・ECU・部品・電装品の故障や破損、エンジンの損傷、火災、事故、けが、データの消失、
+    車検・保証・法令への不適合などを含み、これらに限りません）について、作者は一切の責任を負いません。
+  - 車両の改造・ECU の設定・配線・CAN バスへの接続は、利用者自身の判断と責任で行ってください。
+    公道での使用時は、各国・地域の法令や保安基準に従ってください。
+  - 本ソフトウェア等は予告なく変更・公開停止することがあります。
+
+■ 4. 第三者の権利
+  - 記事中で言及する製品名・会社名は各社の商標または登録商標です。
+  - note.com で公開している記事本文の著作権は作者に帰属します。
+
+■ 5. その他
+  - 上記以外の利用（再配布・商用利用・組み込みなど）を希望する場合は、作者に連絡してください。
+  - 本ソフトウェア等を利用した時点で、本規約に同意したものとみなします。
+
+------------------------------------------------------------------------------
+English summary (the Japanese text above prevails)
+
+Copyright (c) 2026 Kim23 Test Laboratory (Kimu2). All rights reserved.
+
+- Permitted: viewing and using this software, tools, text, images and data for personal,
+  non-commercial purposes, and modifying them for your own private use only.
+- Prohibited without prior written permission: redistribution or republication of all or part
+  (modified or not, free or paid), commercial use, removing this notice, or claiming authorship.
+- Linking and referencing with proper attribution is allowed.
+- NO WARRANTY. Provided "AS IS" without warranty of any kind. The author accepts no liability
+  for any damage arising from use or inability to use (including damage to vehicles, ECUs or
+  parts, engine damage, fire, accidents, injury, data loss, or non-compliance with laws or
+  regulations). Vehicle modification, ECU configuration, wiring and CAN bus connection are
+  entirely at your own risk.

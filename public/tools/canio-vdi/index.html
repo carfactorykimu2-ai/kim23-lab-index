@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b1220">
+<title>CAN I/O 仮想DI</title>
+<style>
+  :root {
+    --bg: #0b1220; --panel: #121b2e; --line: #22304a; --text: #e2e8f0; --muted: #8796ad;
+    --ok: #22c55e; --ng: #ef4444; --warn: #f59e0b; --acc: #38bdf8; --mom: #f472b6; --tog: #a78bfa; --accu: #34d399;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  body { padding: max(12px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom)); max-width: 720px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  header h1 { font-size: 17px; margin: 0; flex: 1; }
+  button { font: inherit; color: var(--text); background: #1c2840; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+  button:active { filter: brightness(1.3); }
+  button.primary { background: #0e7490; border-color: #0891b2; font-weight: 700; }
+  button.danger { background: #3b1d24; border-color: #7f1d1d; }
+  .status { border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; font-weight: 700; border: 1px solid var(--line); background: var(--panel); }
+  .status.ok { border-color: #166534; background: #0f2a1b; color: #86efac; }
+  .status.ng { border-color: #7f1d1d; background: #2a1215; color: #fca5a5; }
+  .status small { display: block; font-weight: 400; color: var(--muted); margin-top: 2px; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  @media (min-width: 560px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 150px; }
+  .tile .top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .tile .name { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tile .mode { font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #1c2840; color: var(--muted); white-space: nowrap; }
+  .tile.m-momentary .mode { color: var(--mom); } .tile.m-toggle .mode { color: var(--tog); } .tile.m-accumulator .mode { color: var(--accu); }
+  .big { flex: 1; font-size: 18px; font-weight: 800; border-radius: 12px; min-height: 76px; }
+  .tile.on .big { color: #0b1220; }
+  .tile.m-momentary.on .big { background: var(--mom); border-color: var(--mom); }
+  .tile.m-toggle.on .big { background: var(--tog); border-color: var(--tog); }
+  .acc { display: flex; gap: 6px; align-items: stretch; flex: 1; }
+  .acc button { flex: 1; font-size: 26px; font-weight: 800; min-height: 76px; padding: 0; }
+  .acc .val { flex: 1.2; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; background: #0f172a; border: 1px solid var(--line); }
+  .acc .val b { font-size: 28px; color: var(--accu); } .acc .val span { font-size: 10px; color: var(--muted); }
+  .tile .foot { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; gap: 4px; }
+  .tile .foot .echo.ok { color: var(--ok); } .tile .foot .echo.ng { color: var(--warn); }
+  .disabled .big, .disabled .acc button { opacity: .45; }
+  h2 { font-size: 15px; margin: 18px 0 8px; color: var(--acc); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+  .setrow { display: grid; grid-template-columns: 54px 1fr 1fr 82px; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .setrow:last-child { border-bottom: none; }
+  .setrow .di { font-weight: 700; }
+  select, input { font: inherit; color: var(--text); background: #0f172a; border: 1px solid var(--line); border-radius: 8px; padding: 8px; width: 100%; min-width: 0; }
+  .setrow .can { grid-column: 2 / 5; font-size: 11px; color: var(--muted); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .actions .primary { flex: 1 1 100%; padding: 14px; font-size: 16px; }
+  .note { font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 10px; }
+  .note b { color: var(--text); }
+  .warn { background: #2a2110; border: 1px solid #78350f; color: #fcd34d; border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; font-size: 13px; line-height: 1.6; }
+  .dirty { color: var(--warn); font-size: 12px; margin-left: 6px; }
+  .toast { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); background: #1e293b; border: 1px solid var(--line); padding: 10px 14px; border-radius: 10px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90%; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <a href="../" style="color:var(--muted);text-decoration:none;font-size:13px" aria-label="Tools 一覧へ">‹ Tools</a>
+  <h1>CAN I/O 仮想DI</h1>
+  <button id="btnConn" class="primary">接続</button>
+</header>
+<div style="text-align:right;margin:-4px 0 8px"><button id="btnConnAll" style="font-size:12px;padding:6px 10px">機器が一覧に出ない時：全機器から探す</button></div>
+
+<div id="noBle" class="warn" hidden>
+  このブラウザは Web Bluetooth に対応していません。<br>
+  Android / PC は <b>Chrome</b>、iPhone は <b>Bluefy</b> などの Web Bluetooth 対応ブラウザで開いてください。
+  また、ページは <b>https://</b> か <b>localhost</b> で開く必要があります。
+</div>
+
+<div id="status" class="status">● 未接続<small>「接続」を押して CAN_IO_XIAO を選んでください</small></div>
+
+<div id="pinBox" class="card" hidden style="margin-bottom:10px;border-color:#0891b2">
+  <div id="pinMsg" style="font-weight:700;margin-bottom:8px">PIN（6桁）を入力してください</div>
+  <div style="display:flex;gap:8px">
+    <input id="pinIn" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" style="font-size:22px;letter-spacing:6px;text-align:center">
+    <button id="pinOk" class="primary" style="white-space:nowrap">OK</button>
+    <button id="pinCancel" style="white-space:nowrap">中止</button>
+  </div>
+</div>
+
+<div id="tiles" class="grid"></div>
+
+<h2>DI 設定 <span id="dirty" class="dirty" hidden>未保存の変更あり</span></h2>
+<div class="card">
+  <div id="setRows"></div>
+  <div class="actions">
+    <button id="btnSave" class="primary">保存（この端末に保存して送信）</button>
+    <button id="btnExport">JSON 書き出し</button>
+    <button id="btnImport">JSON 読み込み</button>
+    <button id="btnReset" class="danger">初期値に戻す</button>
+    <button id="btnForgetPin">保存した PIN を消す</button>
+    <input id="fileImport" type="file" accept="application/json,.json" hidden>
+  </div>
+</div>
+
+
+<div id="toast" class="toast"></div>
+
+<script>
+(() => {
+  'use strict';
+  const NUS = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+  const DI_VALUE = '6e400005-b5a3-f393-e0a9-e50e24dcca9e';
+  const AUTH = '6e400007-b5a3-f393-e0a9-e50e24dcca9e';
+  const VDI_CFG = '6e400008-b5a3-f393-e0a9-e50e24dcca9e'; // DI の設定を機器に保存（FW 1.3 以降。無ければ端末に保存）   // PIN 認証（FW 1.2 以降。無ければ認証なしで使う）
+  const CH = 8, MAXMAX = 63, HEARTBEAT_MS = 1000;
+  const STORE_KEY = 'canio_vdi_cfg_v1';
+  const MODES = { momentary: 'Momentary', toggle: 'Toggle', accumulator: 'Accumulator' };
+  const CAN_ID_BY_NAME = name => (name || '').startsWith('CAN_GPS_LOGGER') ? 0x3FF : 0x6E2;
+
+  const $ = id => document.getElementById(id);
+  const hex = (v, n) => v.toString(16).toUpperCase().padStart(n, '0');
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // ---- 設定（保存済み = saved、画面で編集中 = edit）----
+  const defCfg = () => Array.from({ length: CH }, (_, i) => ({ mode: 'momentary', max: MAXMAX, label: `DI${i + 1}` }));
+  const clampMax = v => Math.min(MAXMAX, Math.max(1, Math.round(Number(v) || 1)));
+  function normCfg(arr) {
+    const d = defCfg();
+    return d.map((c, i) => {
+      const x = arr && arr[i] || {};
+      return { mode: MODES[x.mode] ? x.mode : c.mode, max: x.max != null ? clampMax(x.max) : c.max,
+               label: typeof x.label === 'string' && x.label.trim() ? x.label.trim().slice(0, 12) : c.label };
+    });
+  }
+  function loadCfg() {
+    try { const s = localStorage.getItem(STORE_KEY); if (s) return normCfg(JSON.parse(s)); } catch (e) { /* 保存領域が使えなくても初期値で動く */ }
+    return defCfg();
+  }
+  function storeCfg(c) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(c)); return true; } catch (e) { return false; }
+  }
+  let saved = loadCfg();
+  let edit = saved.map(c => ({ ...c }));
+  const state = Array.from({ length: CH }, () => ({ pressed: false, on: false, acc: 0 }));
+
+  const byteFor = i => {
+    const c = saved[i], s = state[i];
+    if (c.mode === 'momentary') return s.pressed ? 0x80 : 0;
+    if (c.mode === 'toggle') return s.on ? 0x40 : 0;
+    return s.acc & 0x3F;
+  };
+  const values = () => Array.from({ length: CH }, (_, i) => byteFor(i));
+
+  // ---- BLE ----
+  let authChr = null, authInfo = '', cfgChr = null;
+  // GATT は同時に 1 操作だけなので、全部この順番待ちに通す
+  let gattChain = Promise.resolve();
+  const gatt = fn => { const r = gattChain.then(fn, fn); gattChain = r.catch(() => {}); return r; };
+  let device = null, chr = null, connected = false, echo = null, lastEcho = 0, writes = 0, writeErr = 0;
+  let busy = false, pending = false, hbTimer = null, userDisconnect = false;
+
+  async function writeNow() {
+    if (!chr) return;
+    if (busy) { pending = true; return; }          // GATT は同時に 1 操作だけ。最新値だけ後で送る
+    busy = true;
+    try {
+      do {
+        pending = false;
+        const data = new Uint8Array(values());
+        const c = chr;
+        if (c.writeValueWithoutResponse && c.properties.writeWithoutResponse) await gatt(() => c.writeValueWithoutResponse(data));
+        else if (c.writeValueWithResponse) await gatt(() => c.writeValueWithResponse(data));
+        else await gatt(() => c.writeValue(data));
+        writes++;
+      } while (pending && chr);
+    } catch (e) {
+      writeErr++;
+      console.warn('write failed', e);
+    } finally { busy = false; }
+    renderStatus();
+  }
+  const send = () => { writeNow(); };
+
+  async function connect(all) {
+    if (!navigator.bluetooth) return toast('このブラウザは Web Bluetooth 非対応です');
+    try {
+      // all=true は名前・UUID で絞らずに周囲の BLE 機器を全部出す（絞り込み条件の問題か、電波が届いていないかの切り分け用）
+      device = await navigator.bluetooth.requestDevice(all ? { acceptAllDevices: true, optionalServices: [NUS] } : {
+        filters: [{ namePrefix: 'CAN_IO' }, { name: 'CAN_GPS_LOGGER_VER4' }, { services: [NUS] }],
+        optionalServices: [NUS],
+      });
+    } catch (e) {
+      if (e && e.name === 'NotFoundError' && /cancel/i.test(e.message || '')) return;   // 自分でキャンセルした
+      setStatus('● 機器を選べませんでした', 'ng', `${e && e.name}: ${e && e.message}（Bluetooth・位置情報が ON か、Chrome に「付近のデバイス」の許可があるか確認）`);
+      return;
+    }
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+    await openGatt();
+  }
+
+  // ---- PIN 認証 ----
+  const pinKey = () => 'canio_vdi_pin_' + (device && (device.id || device.name) || '');
+  const loadPin = () => { try { return localStorage.getItem(pinKey()); } catch (e) { return null; } };
+  const savePin = v => { try { if (v == null) localStorage.removeItem(pinKey()); else localStorage.setItem(pinKey(), v); } catch (e) { /* 保存できなくても毎回入力すれば使える */ } };
+  function askPin(text) {
+    return new Promise(resolve => {
+      $('pinMsg').textContent = text; $('pinIn').value = ''; $('pinBox').hidden = false;
+      setTimeout(() => $('pinIn').focus(), 50);
+      const done = v => { $('pinBox').hidden = true; $('pinOk').onclick = $('pinCancel').onclick = $('pinIn').onkeydown = null; resolve(v); };
+      $('pinOk').onclick = () => { const v = $('pinIn').value.trim(); if (!/^\d{6}$/.test(v)) { $('pinMsg').textContent = '6 桁の数字で入力してください'; return; } done(v); };
+      $('pinCancel').onclick = () => done(null);
+      $('pinIn').onkeydown = ev => { if (ev.key === 'Enter') $('pinOk').onclick(); };
+    });
+  }
+  const authRead = async () => (await authChr.readValue()).getUint8(0);   // 0 未認証 / 1 OK / 2 ロック中 / 3 PIN不要
+  async function doAuth() {
+    if (!authChr) { authInfo = ''; return; }               // 古いファーム・CAN_GPS_LOGGER は認証なし
+    let st = await step('⑥ PIN 状態の確認', authRead(), 5000);
+    if (st === 3) { authInfo = 'PIN なし'; return; }
+    if (st === 1) { authInfo = 'PIN 認証済み'; return; }
+    if (st === 2) throw new Error('ロック中です。しばらく待ってから「接続」を押してください');
+    let pin = loadPin(), msgText = 'PIN（6桁）を入力してください';
+    for (;;) {
+      if (!pin) {
+        setStatus('● PIN を入力してください', '', device.name || '');
+        pin = await askPin(msgText);
+        if (pin == null) throw new Error('PIN の入力を中止しました');
+      }
+      const data = new TextEncoder().encode(pin);
+      await step('⑦ PIN 送信', authChr.writeValueWithResponse ? authChr.writeValueWithResponse(data) : authChr.writeValue(data), 5000);
+      st = await step('⑦ PIN 確認', authRead(), 5000);
+      if (st === 1 || st === 3) { savePin(pin); authInfo = st === 1 ? 'PIN 認証済み' : 'PIN なし'; return; }
+      savePin(null);
+      if (st === 2) throw new Error('ロックされました。しばらく待ってから「接続」を押してください');
+      pin = null; msgText = 'PIN が違います。もう一度入力してください';
+    }
+  }
+
+  // ---- DI 設定を機器に保存・読み出し ----
+  const M2C = { momentary: 'm', toggle: 't', accumulator: 'a' }, C2M = { m: 'momentary', t: 'toggle', a: 'accumulator' };
+  const cfgToJson = c => JSON.stringify({ v: 1, d: c.map(x => [M2C[x.mode], x.max, x.label]) });
+  async function readDeviceCfg() {
+    const v = await gatt(() => cfgChr.readValue());
+    const txt = new TextDecoder().decode(v.buffer);
+    if (!txt) return null;
+    const j = JSON.parse(txt);
+    if (!j || !Array.isArray(j.d)) return null;
+    return j.d.map(x => ({ mode: C2M[x[0]] || 'momentary', max: x[1], label: x[2] }));
+  }
+  async function writeDeviceCfg() {
+    if (!cfgChr || !connected) return false;
+    const data = new TextEncoder().encode(cfgToJson(saved));
+    const c = cfgChr;
+    await gatt(() => c.writeValueWithResponse ? c.writeValueWithResponse(data) : c.writeValue(data));
+    return true;
+  }
+
+  // どの段階で止まったか分かるように、各段階に制限時間をつけて表示する
+  const step = (label, p, ms = 10000) => {
+    setStatus(`● 接続中… ${label}`, '', device ? device.name || '' : '');
+    return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} が ${ms / 1000} 秒で終わりませんでした`)), ms))]);
+  };
+  async function openGatt() {
+    if (!device) return;
+    try {
+      const server = await step('① BLE 接続', device.gatt.connect(), 15000);
+      const svc = await step('② サービス取得（6E400001）', server.getPrimaryService(NUS));
+      chr = await step('③ DI 特性取得（6E400005）', svc.getCharacteristic(DI_VALUE));
+      authChr = null;
+      try { authChr = await step('③ PIN 特性取得（6E400007）', svc.getCharacteristic(AUTH), 5000); } catch (e) { /* 無ければ認証なしの機器 */ }
+      cfgChr = null;
+      try { cfgChr = await step('③ 設定特性取得（6E400008）', svc.getCharacteristic(VDI_CFG), 5000); } catch (e) { /* 無ければ端末に保存 */ }
+      echo = null;
+      if (chr.properties.notify) {
+        chr.addEventListener('characteristicvaluechanged', ev => { echo = Array.from(new Uint8Array(ev.target.value.buffer)); lastEcho = Date.now(); renderTiles(); });
+        try { await step('④ 通知の開始', chr.startNotifications(), 5000); } catch (e) { console.warn(e); /* 通知が無くても送信はできる */ }
+        try { const v = await step('⑤ 現在値の読み出し', chr.readValue(), 5000); echo = Array.from(new Uint8Array(v.buffer)); lastEcho = Date.now(); } catch (e) { console.warn(e); }
+      }
+      await doAuth();                                        // 認証が通るまで DI は送らない
+      let cfgMsg = '';
+      if (cfgChr) {                                          // 機器に保存された設定を使う（無ければ今の設定を機器に保存）
+        try {
+          const dc = await step('⑧ 設定の読み出し', readDeviceCfg(), 8000);
+          if (dc) { applySaved(dc, true); cfgMsg = '・設定を機器から読み込みました'; }
+          else { connected = true; await writeDeviceCfg(); connected = false; cfgMsg = '・設定を機器に保存しました'; }
+        } catch (e) { console.warn(e); cfgMsg = '・設定の読み出しに失敗（この端末の設定で動作）'; }
+      }
+      connected = true; userDisconnect = false;
+      $('btnConn').textContent = '切断'; $('btnConn').classList.remove('primary'); $('btnConn').classList.add('danger');
+      clearInterval(hbTimer);
+      hbTimer = setInterval(send, HEARTBEAT_MS);
+      send();
+      requestWakeLock();
+      toast(`${device.name || '機器'} に接続しました${cfgMsg}`);
+    } catch (e) {
+      chr = null; connected = false; $('pinBox').hidden = true;
+      userDisconnect = true;                                 // 失敗後に自動で再接続を繰り返さない（PIN の総当たりにもならない）
+      try { if (device.gatt.connected) device.gatt.disconnect(); } catch (_) { /* 切れていてもよい */ }
+      const hint = /PIN|ロック/.test(e.message) ? '' : '（nRF Connect など他のアプリが接続中なら切断し、スマホの Bluetooth を一度 OFF→ON してから「接続」をもう一度）';
+      setStatus('● 接続できませんでした', 'ng', e.message + hint);
+    }
+    renderAll();
+  }
+
+  function onDisconnected() {
+    connected = false; chr = null; echo = null; cfgChr = null; authChr = null;
+    clearInterval(hbTimer); hbTimer = null;
+    state.forEach(s => { s.pressed = false; });      // 押しっぱなしの状態を残さない
+    $('btnConn').textContent = '接続'; $('btnConn').classList.add('primary'); $('btnConn').classList.remove('danger');
+    renderAll();
+    if (!userDisconnect && device) {
+      setStatus('● Disconnected — 再接続しています…', 'ng', '機器側は全 0 になっています');
+      setTimeout(() => { if (!connected && device && !userDisconnect) openGatt(); }, 1500);
+    }
+  }
+
+  function disconnect() {
+    userDisconnect = true;
+    if (device && device.gatt.connected) device.gatt.disconnect(); else onDisconnected();
+  }
+
+  // 画面を消さない（対応ブラウザのみ）。消えると送信が止まり 2 秒で全 0 になる
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } }
+    catch (e) { /* 非対応・拒否でも動作には影響なし */ }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && connected) { requestWakeLock(); send(); } });
+
+  // ---- 表示 ----
+  function setStatus(text, cls, sub) {
+    const el = $('status');
+    el.className = 'status ' + (cls || '');
+    el.innerHTML = esc(text) + (sub ? `<small>${esc(sub)}</small>` : '');
+  }
+  function renderStatus() {
+    if (!connected) {
+      if (!device) setStatus('● 未接続', '', '「接続」を押して CAN_IO_XIAO を選んでください');
+      return;
+    }
+    const id = CAN_ID_BY_NAME(device && device.name);
+    setStatus(`● 接続中：${device.name || '機器'}`, 'ok',
+      `${authInfo ? authInfo + ' ・ ' : ''}CAN 0x${hex(id, 3)} に出力中 ・ 送信 ${writes} 回${writeErr ? ` ・ 送信失敗 ${writeErr}` : ''}${chr && chr.properties.notify ? ' ・ 機器の出力を確認中' : ''}`);
+  }
+
+  function tileHtml(i) {
+    const c = saved[i], s = state[i], b = byteFor(i);
+    const on = c.mode === 'momentary' ? s.pressed : c.mode === 'toggle' ? s.on : s.acc > 0;
+    let ctl;
+    if (c.mode === 'accumulator') {
+      ctl = `<div class="acc"><button data-act="down" data-i="${i}">−</button>
+        <div class="val"><b>${s.acc}</b><span>/ ${c.max}</span></div>
+        <button data-act="up" data-i="${i}">＋</button></div>`;
+    } else if (c.mode === 'toggle') {
+      ctl = `<button class="big" data-act="toggle" data-i="${i}">${s.on ? 'ON' : 'OFF'}</button>`;
+    } else {
+      ctl = `<button class="big" data-act="mom" data-i="${i}">${s.pressed ? 'ON' : '長押し'}</button>`;
+    }
+    let ech = '';
+    if (connected && echo) {
+      const ev = echo[i] ?? 0, same = ev === b;
+      ech = `<span class="echo ${same ? 'ok' : 'ng'}">機器 0x${hex(ev, 2)}${same ? ' ✓' : ''}</span>`;
+    }
+    return `<div class="tile m-${c.mode}${on ? ' on' : ''}${connected ? '' : ' disabled'}" data-tile="${i}">
+      <div class="top"><span class="name">${esc(c.label)}</span><span class="mode">${MODES[c.mode]}</span></div>
+      ${ctl}
+      <div class="foot"><span>Byte${i} = 0x${hex(b, 2)}</span>${ech}</div></div>`;
+  }
+  // 構成（モード・名前・接続）が変わった時だけ作り直す。押している最中にボタンを作り直すと
+  // 指の追跡（pointer capture）が切れて Momentary が勝手に OFF になるため、普段は中身だけ書き換える
+  let tileSig = '';
+  function renderTiles() {
+    const sig = JSON.stringify([saved, connected]);
+    const root = $('tiles');
+    if (sig !== tileSig) { tileSig = sig; root.innerHTML = Array.from({ length: CH }, (_, i) => tileHtml(i)).join(''); return; }
+    const tmp = document.createElement('div');
+    for (let i = 0; i < CH; i++) {
+      const cur = root.querySelector(`[data-tile="${i}"]`);
+      tmp.innerHTML = tileHtml(i);
+      const nw = tmp.firstElementChild;
+      cur.className = nw.className;
+      const cb = cur.querySelector('.big'), nb = nw.querySelector('.big');
+      if (cb && nb && cb.textContent !== nb.textContent) cb.textContent = nb.textContent;
+      const cv = cur.querySelector('.val'), nv = nw.querySelector('.val');
+      if (cv && nv) cv.innerHTML = nv.innerHTML;
+      cur.querySelector('.foot').innerHTML = nw.querySelector('.foot').innerHTML;
+    }
+  }
+
+  function renderSettings() {
+    const id = connected ? CAN_ID_BY_NAME(device && device.name) : 0x6E2;
+    $('setRows').innerHTML = edit.map((c, i) => `
+      <div class="setrow">
+        <span class="di">DI${i + 1}</span>
+        <input data-set="label" data-i="${i}" value="${esc(c.label)}" maxlength="12" aria-label="DI${i + 1} の名前">
+        <select data-set="mode" data-i="${i}">${Object.entries(MODES).map(([k, v]) => `<option value="${k}"${k === c.mode ? ' selected' : ''}>${v}</option>`).join('')}</select>
+        <input data-set="max" data-i="${i}" type="number" min="1" max="63" value="${c.max}" ${c.mode === 'accumulator' ? '' : 'disabled'} aria-label="最大値">
+      </div>`).join('');
+    $('dirty').hidden = JSON.stringify(edit) === JSON.stringify(saved);
+  }
+  function renderAll() { renderStatus(); renderTiles(); renderSettings(); }
+
+  let toastTimer = null;
+  function toast(t) {
+    const el = $('toast'); el.textContent = t; el.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  // ---- 操作 ----
+  const tiles = $('tiles');
+  const actBtn = ev => ev.target.closest('button[data-act]');
+  // Momentary：押している間だけ ON（指がボタンから外れても OFF）
+  tiles.addEventListener('pointerdown', ev => {
+    const b = actBtn(ev); if (!b || !connected) return;
+    const i = Number(b.dataset.i);
+    if (b.dataset.act === 'mom') {
+      ev.preventDefault();
+      try { b.setPointerCapture(ev.pointerId); } catch (e) { /* なくても動く */ }
+      state[i].pressed = true; renderTiles(); send();
+    }
+  });
+  const release = ev => {
+    let changed = false;
+    state.forEach((s, i) => { if (s.pressed && saved[i].mode === 'momentary') { s.pressed = false; changed = true; } });
+    if (changed) { renderTiles(); send(); }
+  };
+  ['pointerup', 'pointercancel'].forEach(t => tiles.addEventListener(t, release));
+  window.addEventListener('blur', release);
+  tiles.addEventListener('contextmenu', ev => ev.preventDefault());
+  tiles.addEventListener('click', ev => {
+    const b = actBtn(ev); if (!b) return;
+    if (!connected) return toast('先に「接続」してください');
+    const i = Number(b.dataset.i), s = state[i], c = saved[i];
+    if (b.dataset.act === 'toggle') s.on = !s.on;
+    else if (b.dataset.act === 'up') s.acc = Math.min(c.max, s.acc + 1);     // ローリングしない
+    else if (b.dataset.act === 'down') s.acc = Math.max(0, s.acc - 1);
+    else return;
+    renderTiles(); send();
+  });
+
+  $('setRows').addEventListener('input', ev => {
+    const el = ev.target.closest('[data-set]'); if (!el) return;
+    const i = Number(el.dataset.i), k = el.dataset.set;
+    if (k === 'label') edit[i].label = el.value.slice(0, 12);
+    else if (k === 'max') { if (el.value !== '') edit[i].max = clampMax(el.value); }
+    else if (k === 'mode') { edit[i].mode = el.value; renderSettings(); return; }
+    $('dirty').hidden = JSON.stringify(edit) === JSON.stringify(saved);
+  });
+  // 最大値は確定時に範囲内へ丸めて表示だけ直す（全体を作り直すと次に触った入力欄のフォーカスが外れる）
+  $('setRows').addEventListener('change', ev => {
+    const el = ev.target;
+    if (el.dataset.set === 'max') { const i = Number(el.dataset.i); el.value = edit[i].max; }
+  });
+
+  function applySaved(next, fromDevice) {
+    next = normCfg(next);
+    next.forEach((c, i) => { if (c.mode !== saved[i].mode) state[i] = { pressed: false, on: false, acc: 0 }; // モードを変えた ch は状態をリセット
+                             if (state[i].acc > c.max) state[i].acc = c.max; });
+    saved = next; edit = saved.map(c => ({ ...c }));
+    const ok = storeCfg(saved);
+    renderAll(); send();
+    if (fromDevice) return Promise.resolve(ok);
+    // 機器に保存（つながっていて、機器が対応している時）
+    return writeDeviceCfg().then(dev => dev ? 'device' : ok, () => 'devfail');
+  }
+  const savedToast = r => toast(r === 'device' ? '機器に保存しました' : r === 'devfail' ? '機器への保存に失敗しました（この端末には保存済み）'
+                                : r ? 'この端末に保存しました' : '保存しました（閉じると戻ります）');
+  $('btnSave').addEventListener('click', async () => { savedToast(await applySaved(edit)); });
+  $('btnReset').addEventListener('click', () => {
+    if (!confirm('DI 設定を初期値（全部 Momentary・最大 63）に戻して保存します。よろしいですか？')) return;
+    applySaved(defCfg()).then(r => toast(r === 'device' ? '初期値に戻して機器に保存しました' : '初期値に戻しました'));
+  });
+
+  // アプリ（can_realtime_app）と同じ JSON 形式 {"di1":{"mode","max","canId","byte"},…}。label はこのページ独自（アプリは無視）
+  $('btnExport').addEventListener('click', () => {
+    const id = connected ? CAN_ID_BY_NAME(device && device.name) : 0x6E2;
+    const obj = {};
+    saved.forEach((c, i) => { obj[`di${i + 1}`] = { mode: c.mode, max: c.max, canId: id, byte: i, label: c.label }; });
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'di_settings.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+  $('btnImport').addEventListener('click', () => $('fileImport').click());
+  $('fileImport').addEventListener('change', async ev => {
+    const f = ev.target.files && ev.target.files[0]; ev.target.value = '';
+    if (!f) return;
+    try {
+      const j = JSON.parse(await f.text());
+      const arr = Array.from({ length: CH }, (_, i) => j[`di${i + 1}`] || saved[i]);
+      savedToast(await applySaved(arr.map((x, i) => ({ ...saved[i], ...x }))));
+    } catch (e) { toast('JSON を読み込めませんでした: ' + e.message); }
+  });
+
+  $('btnForgetPin').addEventListener('click', () => {
+    let n = 0;
+    try { Object.keys(localStorage).filter(k => k.startsWith('canio_vdi_pin_')).forEach(k => { localStorage.removeItem(k); n++; }); } catch (e) { /* 何もしない */ }
+    toast(n ? '保存した PIN を消しました（次の接続で入力します）' : '保存した PIN はありません');
+  });
+  $('btnConnAll').addEventListener('click', () => { if (connected) disconnect(); userDisconnect = false; connect(true); });
+  $('btnConn').addEventListener('click', () => { if (connected) disconnect(); else if (device && !device.gatt.connected) { userDisconnect = false; openGatt(); } else connect(false); });
+
+  if (!navigator.bluetooth) { $('noBle').hidden = false; $('btnConn').disabled = true; $('btnConnAll').disabled = true; }
+  renderAll();
+})();
+</script>
+</body>
+</html>
