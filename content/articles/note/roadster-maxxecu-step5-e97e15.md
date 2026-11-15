@@ -1,5 +1,5 @@
 ---
-title: "NB1 ロドスタ MaxxECU Race フルコン化 STEP5 吸気温度センサ設定 センサ特性は？プルアップ抵抗値は？"
+title: "NB1 NB8 ロドスタ MaxxECU Race フルコン化 STEP5-2 吸気温度センサ設定 センサ特性は？プルアップ抵抗値は？"
 date: 2025-08-09
 summary: "ふりかえりStep4で水温センサの設定ができました。"
 magazine:
@@ -17,7 +17,7 @@ tags:
   - "吸気温度センサ設定"
   - "センサ特性"
 category: "STEP本編（フルコン化手順）"
-step: "STEP5"
+step: "STEP5-2"
 car_model: "ロードスター(NB8/NB1)"
 ecu:
   - "MaxxECU"
@@ -38,5 +38,5 @@ related:
 
 本文は note.com 側でご覧いただけます。
 
-→ [NB1 ロドスタ MaxxECU Race フルコン化 STEP5 吸気温度センサ設定 センサ特性は？プルアップ抵抗値は？（note.com）](https://note.com/labratory_ktech/n/n1013ffe97e15)
+→ [NB1 NB8 ロドスタ MaxxECU Race フルコン化 STEP5-2 吸気温度センサ設定 センサ特性は？プルアップ抵抗値は？（note.com）](https://note.com/labratory_ktech/n/n1013ffe97e15)
 

@@ -1,5 +1,5 @@
 ---
-title: "NB1 ロドスタ MaxxECU Race フルコン化 STEP3-2 MAPセンサ設定"
+title: "NB1 ロドスタ MaxxECU Race フルコン化 STEP4-2 MAPセンサ設定"
 date: 2025-07-14
 summary: "ふりかえりStep3でMAPセンサを取り付けました。"
 magazine:
@@ -15,7 +15,7 @@ tags:
   - "吸気圧力"
   - "MAPセンサ設定"
 category: "STEP本編（フルコン化手順）"
-step: "STEP3-2"
+step: "STEP4-2"
 car_model: "ロードスター(NB8/NB1)"
 ecu:
   - "MaxxECU"
@@ -36,5 +36,5 @@ related:
 
 本文は note.com 側でご覧いただけます。
 
-→ [NB1 ロドスタ MaxxECU Race フルコン化 STEP3-2 MAPセンサ設定（note.com）](https://note.com/labratory_ktech/n/n819d27972e9b)
+→ [NB1 ロドスタ MaxxECU Race フルコン化 STEP4-2 MAPセンサ設定（note.com）](https://note.com/labratory_ktech/n/n819d27972e9b)
 

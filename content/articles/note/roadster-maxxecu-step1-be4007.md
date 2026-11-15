@@ -1,5 +1,5 @@
 ---
-title: "NB1 ロドスタ MaxxECU Race フルコン化 STEP1 電源配線"
+title: "NB1 ロドスタ MaxxECU Race フルコン化 STEP2 電源配線"
 date: 2025-06-14
 summary: "MaxxECU ピンアサイン MaxxECU のピンアサインは以下に置いておきます。"
 magazine:
@@ -16,7 +16,7 @@ tags:
   - "N8"
   - "MaxxECUセッティング"
 category: "STEP本編（フルコン化手順）"
-step: "STEP1"
+step: "STEP2"
 car_model: "ロードスター(NB8/NB1)"
 ecu:
   - "MaxxECU"
@@ -36,5 +36,5 @@ MaxxECU ピンアサイン MaxxECU のピンアサインは以下に置いてお
 
 本文は note.com 側でご覧いただけます。
 
-→ [NB1 ロドスタ MaxxECU Race フルコン化 STEP1 電源配線（note.com）](https://note.com/labratory_ktech/n/nd4c40cbe4007)
+→ [NB1 ロドスタ MaxxECU Race フルコン化 STEP2 電源配線（note.com）](https://note.com/labratory_ktech/n/nd4c40cbe4007)
 

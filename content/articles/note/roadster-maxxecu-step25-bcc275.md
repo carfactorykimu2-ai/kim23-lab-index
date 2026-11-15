@@ -1,5 +1,5 @@
 ---
-title: "NB1 NB8 ロドスタ ロードスター MaxxECU Race フルコン化 STEP25 ノックインプット ノックコントロール Knock Control"
+title: "NB1 NB8 ロドスタ ロードスター MaxxECU Race フルコン化 STEP25-1 25-2 ノックインプット ノックコントロール Knock Control"
 date: 2026-04-01
 summary: "MaxxECUを使って、NB8ロードスターをフルコン化していきます。"
 magazine:
@@ -40,5 +40,5 @@ MaxxECUを使って、NB8ロードスターをフルコン化していきます�
 
 本文は note.com 側でご覧いただけます。
 
-→ [NB1 NB8 ロドスタ ロードスター MaxxECU Race フルコン化 STEP25 ノックインプット ノックコントロール Knock Control（note.com）](https://note.com/labratory_ktech/n/n38df4abcc275)
+→ [NB1 NB8 ロドスタ ロードスター MaxxECU Race フルコン化 STEP25-1 25-2 ノックインプット ノックコントロール Knock Control（note.com）](https://note.com/labratory_ktech/n/n38df4abcc275)
 

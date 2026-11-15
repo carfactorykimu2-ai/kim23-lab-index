@@ -1,5 +1,5 @@
 ---
-title: "NB1 ロドスタ MaxxECU Race フルコン化 STEP3 MAPセンサ取り付け例"
+title: "NB1 ロドスタ MaxxECU Race フルコン化 STEP4 MAPセンサ取り付け例"
 date: 2025-06-26
 summary: "ふりかえりStep2でスロットルポジションセンサ信号を入力して校正を行いました。"
 magazine:
@@ -19,7 +19,7 @@ tags:
   - "MAPセンサ取り付け例"
   - "LINECU"
 category: "STEP本編（フルコン化手順）"
-step: "STEP3"
+step: "STEP4"
 car_model: "ロードスター(NB8/NB1)"
 ecu:
   - "LINKECU"
@@ -41,5 +41,5 @@ related:
 
 本文は note.com 側でご覧いただけます。
 
-→ [NB1 ロドスタ MaxxECU Race フルコン化 STEP3 MAPセンサ取り付け例（note.com）](https://note.com/labratory_ktech/n/ne97ba535987a)
+→ [NB1 ロドスタ MaxxECU Race フルコン化 STEP4 MAPセンサ取り付け例（note.com）](https://note.com/labratory_ktech/n/ne97ba535987a)
 

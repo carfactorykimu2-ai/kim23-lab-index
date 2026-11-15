@@ -1,5 +1,5 @@
 ---
-title: "NB1 ロドスタ ロードスター MaxxECU Race フルコン化 STEP2 スロットルポジションセンサ 信号入力 アナログインプット"
+title: "NB1 ロドスタ ロードスター MaxxECU Race フルコン化 STEP3 スロットルポジションセンサ TPS 信号入力 アナログインプット"
 date: 2025-06-14
 summary: "振り返りまずは電源入力出来たら次のステップへ行きましょう 今回はスロットルポジションセンサ信号の入力をしていきます。"
 magazine:
@@ -17,7 +17,7 @@ tags:
   - "スロットルポジションセンサ信号入力"
   - "スロットルポジション"
 category: "STEP本編（フルコン化手順）"
-step: "STEP2"
+step: "STEP3"
 car_model: "ロードスター(NB8/NB1)"
 ecu:
   - "MaxxECU"
@@ -38,5 +38,5 @@ related:
 
 本文は note.com 側でご覧いただけます。
 
-→ [NB1 ロドスタ ロードスター MaxxECU Race フルコン化 STEP2 スロットルポジションセンサ 信号入力 アナログインプット（note.com）](https://note.com/labratory_ktech/n/n00d2384b2212)
+→ [NB1 ロドスタ ロードスター MaxxECU Race フルコン化 STEP3 スロットルポジションセンサ TPS 信号入力 アナログインプット（note.com）](https://note.com/labratory_ktech/n/n00d2384b2212)
 

@@ -1,5 +1,5 @@
 ---
-title: "NB1 ロドスタ MaxxECU Race フルコン化 STEP4 水温センサ設定"
+title: "NB1 NB8 ロドスタ MaxxECU Race フルコン化 STEP5-1 水温センサ設定 CLT ECT"
 date: 2025-07-15
 summary: "ふりかえりStep3-1 3-2でMAPセンサを取り付けて、設定ができました。"
 magazine:
@@ -17,7 +17,7 @@ tags:
   - "ロドスタ"
   - "水温センサ設定"
 category: "STEP本編（フルコン化手順）"
-step: "STEP4"
+step: "STEP5-1"
 car_model: "ロードスター(NB8/NB1)"
 ecu:
   - "LINKECU"
@@ -39,5 +39,5 @@ related:
 
 本文は note.com 側でご覧いただけます。
 
-→ [NB1 ロドスタ MaxxECU Race フルコン化 STEP4 水温センサ設定（note.com）](https://note.com/labratory_ktech/n/n3645480a8136)
+→ [NB1 NB8 ロドスタ MaxxECU Race フルコン化 STEP5-1 水温センサ設定 CLT ECT（note.com）](https://note.com/labratory_ktech/n/n3645480a8136)
 
