@@ -16,7 +16,8 @@ const articles = (await getCollection('articles')).sort((a, b) => {
 	<p class="muted">{articles.length}記事。メタデータからの絞り込みは <a href={`${base}search/`}>Search</a> をご利用ください。</p>
 	<ul>
 		{articles.map((article) => (
-			<li>
+			<li class:list={{ 'has-note': article.data.note_url }}>
+				{article.data.note_url && <a class="note-link" href={article.data.note_url} target="_blank" rel="noopener" title="noteで読む">Note ↗</a>}
 				<a href={`${base}articles/${article.id}/`}>{article.data.title}</a>
 				<div class="muted">
 					{article.data.date && <span>{article.data.date.toISOString().slice(0, 10)}</span>}

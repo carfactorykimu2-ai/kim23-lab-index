@@ -1,0 +1,163 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import stepRows from '../../data/step-rows.json';
+
+const base = import.meta.env.BASE_URL;
+
+const columns = [
+	{ key: 'alto', label: 'アルトワークス', sub: 'HA22S', match: (c: string) => c.includes('アルトワークス') },
+	{ key: 'esse', label: 'エッセ', sub: 'KF-VE', match: (c: string) => c.includes('エッセ') },
+	{ key: 'sonica', label: 'ソニカ', sub: 'KF-DET', match: (c: string) => c.includes('ソニカ') },
+	{ key: 'nb', label: 'ロードスター', sub: 'NB1/NB8', match: (c: string) => c.includes('ロードスター') },
+];
+const columnOf = (carModel: string) => columns.filter((col) => col.match(carModel)).map((col) => col.key);
+
+const normStep = (s: string) =>
+	s
+		.normalize('NFKC')
+		.replace(/^step/i, '')
+		.replace(/[‐-―−ー－]/g, '-')
+		.replace(/\s+/g, '');
+const stepOrder = (s: string) => s.split('-').map((n) => Number.parseInt(n, 10) || 0);
+const compareSteps = (a: string, b: string) => {
+	const x = stepOrder(a);
+	const y = stepOrder(b);
+	for (let i = 0; i < Math.max(x.length, y.length); i++) {
+		const d = (x[i] ?? -1) - (y[i] ?? -1);
+		if (d !== 0) return d;
+	}
+	return 0;
+};
+
+type Cell = { id: string; title: string; href: string; external: boolean };
+type Row = { step: string; title: string; category: string; cells: Record<string, Cell[]> };
+
+const articles = (await getCollection('articles')).filter((a) => a.data.step && columnOf(a.data.car_model ?? '').length);
+const rows = new Map<string, Row>();
+const labelByStep = new Map(stepRows.map((r) => [r.step, r]));
+
+for (const a of articles.sort((p, q) => (p.data.date?.getTime() ?? 0) - (q.data.date?.getTime() ?? 0))) {
+	const keys = columnOf(a.data.car_model ?? '');
+	if (!keys.length) continue;
+	const step = normStep(a.data.step!);
+	if (!/^\d+(-\d+)*$/.test(step)) continue;
+	if (!rows.has(step)) {
+		const label = labelByStep.get(step);
+		const fallback = a.data.title.replace(/^.*?STEP\s*[\d\-－]+[\s:：]*/i, '').trim() || a.data.title;
+		rows.set(step, {
+			step,
+			title: label?.title ?? fallback,
+			category: label?.category ?? '',
+			cells: Object.fromEntries(columns.map((c) => [c.key, [] as Cell[]])),
+		});
+	}
+	const noteUrl = a.data.note_url;
+	const cell: Cell = {
+		id: a.id,
+		title: a.data.title,
+		href: noteUrl ?? `${base}articles/${a.id}/`,
+		external: Boolean(noteUrl),
+	};
+	for (const key of keys) rows.get(step)!.cells[key].push(cell);
+}
+
+const sorted = [...rows.values()].sort((a, b) => compareSteps(a.step, b.step));
+const categories = [...new Set(sorted.map((r) => r.category).filter(Boolean))];
+---
+<Base title="STEP表" description="フルコン化STEPを行、車種・ECUを列にした記事一覧表。" wide>
+	<h1>STEP表</h1>
+	<p class="muted">
+		STEP番号順の早見表です。〇を押すと note の記事が開きます（{sorted.length}行 / {articles.length}記事）。
+		記事がないところは空欄です。
+	</p>
+
+	<p class="filters">
+		<label>
+			分類
+			<select id="cat">
+				<option value="">すべて</option>
+				{categories.map((c) => <option value={c}>{c}</option>)}
+			</select>
+		</label>
+		<label>
+			車種
+			<select id="car">
+				<option value="">すべて</option>
+				{columns.map((c) => <option value={c.key}>{c.label}</option>)}
+			</select>
+		</label>
+	</p>
+
+	<div class="wrap">
+		<table>
+			<thead>
+				<tr>
+					<th class="step">STEP</th>
+					<th class="title">タイトル</th>
+					<th class="cat">分類</th>
+					{columns.map((c) => (
+						<th class="car" data-car={c.key}>{c.label}<small>{c.sub}</small></th>
+					))}
+				</tr>
+			</thead>
+			<tbody>
+				{sorted.map((row) => (
+					<tr data-cat={row.category} data-cars={columns.filter((c) => row.cells[c.key].length).map((c) => c.key).join(' ')}>
+						<th class="step" scope="row">{row.step}</th>
+						<td class="title">{row.title}</td>
+						<td class="cat">{row.category}</td>
+						{columns.map((c) => (
+							<td class="mark" data-car={c.key}>
+								{row.cells[c.key].map((cell) => (
+									<a
+										href={cell.href}
+										title={cell.title}
+										target={cell.external ? '_blank' : undefined}
+										rel={cell.external ? 'noopener' : undefined}
+									>〇</a>
+								))}
+							</td>
+						))}
+					</tr>
+				))}
+			</tbody>
+		</table>
+	</div>
+</Base>
+
+<style>
+	.filters { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; font-size: 0.9rem; }
+	.filters select { font: inherit; margin-left: 0.4rem; padding: 0.15rem 0.4rem; }
+	.wrap { overflow: auto; max-height: calc(100vh - 11rem); border: 1px solid var(--border); border-radius: 6px; }
+	table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 0.95rem; }
+	th, td { padding: 0.3rem 0.6rem; border-bottom: 1px solid var(--border); background: var(--bg); }
+	thead th { position: sticky; top: 0; z-index: 3; background: var(--chip-bg); text-align: center; white-space: nowrap; }
+	thead th small { display: block; font-weight: 400; color: var(--muted); font-size: 0.7rem; line-height: 1.2; }
+	th.step { position: sticky; left: 0; z-index: 2; min-width: 3.6rem; text-align: center; background: var(--chip-bg); }
+	thead th.step { z-index: 4; }
+	td.title { min-width: 20rem; }
+	td.cat, th.cat { color: var(--muted); white-space: nowrap; font-size: 0.78rem; }
+	td.mark { text-align: center; white-space: nowrap; min-width: 5rem; }
+	td.mark a { text-decoration: none; font-weight: 700; padding: 0 0.15rem; }
+	td.mark a:hover { background: var(--chip-bg); border-radius: 4px; }
+	tbody tr:hover td, tbody tr:hover th { background: var(--chip-bg); }
+	.hide { display: none; }
+</style>
+
+<script>
+	const cat = document.getElementById('cat') as HTMLSelectElement;
+	const car = document.getElementById('car') as HTMLSelectElement;
+	const rows = document.querySelectorAll<HTMLTableRowElement>('tbody tr');
+	const carCells = document.querySelectorAll<HTMLElement>('[data-car]');
+	function apply() {
+		for (const tr of rows) {
+			const okCat = !cat.value || tr.dataset.cat === cat.value;
+			const okCar = !car.value || (tr.dataset.cars ?? '').split(' ').includes(car.value);
+			tr.classList.toggle('hide', !(okCat && okCar));
+		}
+		for (const el of carCells) el.classList.toggle('hide', Boolean(car.value) && el.dataset.car !== car.value);
+	}
+	cat.addEventListener('change', apply);
+	car.addEventListener('change', apply);
+</script>

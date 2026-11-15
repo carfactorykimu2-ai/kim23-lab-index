@@ -36,7 +36,8 @@ const articles = allArticles
 	<p class="muted">{articles.length}記事</p>
 	<ul>
 		{articles.map((article) => (
-			<li>
+			<li class:list={{ 'has-note': article.data.note_url }}>
+				{article.data.note_url && <a class="note-link" href={article.data.note_url} target="_blank" rel="noopener" title="noteで読む">Note ↗</a>}
 				{article.data.step && <span class="chip">{article.data.step}</span>}
 				<a href={`${base}articles/${article.id}/`}>{article.data.title}</a>
 			</li>

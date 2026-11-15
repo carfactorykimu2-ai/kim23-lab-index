@@ -1,0 +1,342 @@
+[
+ {
+  "step": "0",
+  "title": "ECUピンアサイン",
+  "category": "準備"
+ },
+ {
+  "step": "1",
+  "title": "ビギーバックハーネス",
+  "category": "配線準備"
+ },
+ {
+  "step": "2",
+  "title": "電源供給",
+  "category": "電源入力"
+ },
+ {
+  "step": "3",
+  "title": "スロットル信号入力と アナログ入力エラー設定",
+  "category": "アナログ IN"
+ },
+ {
+  "step": "3-2",
+  "title": "TPS配線撤去",
+  "category": ""
+ },
+ {
+  "step": "4",
+  "title": "吸気圧力信号入力 と センサCaliblation設定",
+  "category": "アナログ IN"
+ },
+ {
+  "step": "5-0",
+  "title": "温度センサ特性",
+  "category": "アナログ IN"
+ },
+ {
+  "step": "5-1",
+  "title": "温度センサ校正設定",
+  "category": "アナログ IN温度"
+ },
+ {
+  "step": "5-1-2",
+  "title": "温度センサ校正設定 IAT",
+  "category": ""
+ },
+ {
+  "step": "5-2",
+  "title": "吸気温度センサ 高速度応答化の勧め",
+  "category": "アナログ IN温度"
+ },
+ {
+  "step": "5-3",
+  "title": "スタンドアローン化 温度入力 プルアップON編",
+  "category": "アナログ IN温度"
+ },
+ {
+  "step": "6",
+  "title": "回転数トリガ設定",
+  "category": "デジタルIN"
+ },
+ {
+  "step": "7",
+  "title": "エンジン設定",
+  "category": "設定"
+ },
+ {
+  "step": "8",
+  "title": "点火テスト",
+  "category": "点火設定"
+ },
+ {
+  "step": "9",
+  "title": "点火基準合わせ",
+  "category": "点火基準設定"
+ },
+ {
+  "step": "10-1",
+  "title": "車速入力(SPEED入力)ビギーバック",
+  "category": "デジタルIN"
+ },
+ {
+  "step": "10-2",
+  "title": "車速信号線 スタンドアロン入力",
+  "category": "デジタルIN"
+ },
+ {
+  "step": "11",
+  "title": "ギヤ認識入力",
+  "category": "入力設定"
+ },
+ {
+  "step": "12",
+  "title": "電気負荷信号入力",
+  "category": "デジタルIN"
+ },
+ {
+  "step": "13",
+  "title": "ブロアファン信号入力",
+  "category": "デジタルIN"
+ },
+ {
+  "step": "14",
+  "title": "エアコンリクエスト信号入力",
+  "category": "デジタルIN"
+ },
+ {
+  "step": "14-2",
+  "title": "エアコンクラッチOUTPUT 置き換え",
+  "category": "AUXOUT"
+ },
+ {
+  "step": "14-3",
+  "title": "エアコン制御/エバポレーター温度入力",
+  "category": "アナログ IN"
+ },
+ {
+  "step": "14-3-2",
+  "title": "エアコン制御/エバポレーター温度CAN入力",
+  "category": "CAN"
+ },
+ {
+  "step": "14-4",
+  "title": "エアコンクラッチON時アイドルアップ設定",
+  "category": "アイドル制御"
+ },
+ {
+  "step": "15",
+  "title": "イグニッションKEY ON信号入力",
+  "category": "電源入力"
+ },
+ {
+  "step": "16",
+  "title": "ブレーキ信号入力",
+  "category": "デジタルIN"
+ },
+ {
+  "step": "17",
+  "title": "アナログ入力 純正O2センサー",
+  "category": "Lambda"
+ },
+ {
+  "step": "17-3",
+  "title": "アナログ入力 O2センサー  フロント撤去",
+  "category": ""
+ },
+ {
+  "step": "18",
+  "title": "タコメータ制御",
+  "category": "AUXOUT"
+ },
+ {
+  "step": "19",
+  "title": "燃料ポンプリレー制御",
+  "category": "AUXOUT"
+ },
+ {
+  "step": "20-1",
+  "title": "ワイドバンド空燃比入力",
+  "category": "Lambda"
+ },
+ {
+  "step": "20-2",
+  "title": "Internal Lambda 制御",
+  "category": "Lambda"
+ },
+ {
+  "step": "21",
+  "title": "AUX OUT 電動ファン制御",
+  "category": "AUXOUT"
+ },
+ {
+  "step": "22",
+  "title": "ABV 撤去/処理",
+  "category": "撤去"
+ },
+ {
+  "step": "23-1",
+  "title": "WG ソレノイド制御 LINK制御",
+  "category": "AUXOUT"
+ },
+ {
+  "step": "23-2",
+  "title": "ブースト制御 WGアクチュエーター開弁圧調査",
+  "category": "AUXOUT"
+ },
+ {
+  "step": "23-3",
+  "title": "ブースト制御 OPENLOOP",
+  "category": "AUXOUT"
+ },
+ {
+  "step": "23-4",
+  "title": "WGソレノイド3ポート化注意ポイント",
+  "category": "機械部品"
+ },
+ {
+  "step": "23-5",
+  "title": "WGソレノイド3ポート化",
+  "category": "AUXOUT"
+ },
+ {
+  "step": "24",
+  "title": "エンジンチェックランプ CEライト LINK制御",
+  "category": "AUXOUT"
+ },
+ {
+  "step": "25",
+  "title": "ノックコントロール 信号入力",
+  "category": "Knock"
+ },
+ {
+  "step": "25-2",
+  "title": "ノック周波数",
+  "category": "Knock"
+ },
+ {
+  "step": "25-3",
+  "title": "ノック Knock LIMIT(閾値)設定",
+  "category": "Knock"
+ },
+ {
+  "step": "25-4",
+  "title": "ノック リタード設定",
+  "category": "Knock"
+ },
+ {
+  "step": "25-5",
+  "title": "ノック Knock 気筒毎 Gain調整 気筒補正",
+  "category": "Knock"
+ },
+ {
+  "step": "26",
+  "title": "イグニッションコントロール 点火制御(点火制御乗っ取り)",
+  "category": "点火"
+ },
+ {
+  "step": "26-2",
+  "title": "点火レジスター分圧計算とレジスター取り外し",
+  "category": "撤去"
+ },
+ {
+  "step": "26-3",
+  "title": "イオン電流",
+  "category": "撤去"
+ },
+ {
+  "step": "26-5",
+  "title": "フェイルセーフ対策撤去",
+  "category": ""
+ },
+ {
+  "step": "27",
+  "title": "Stepper アイドル制御 ISCV 配線・動作確認",
+  "category": "アイドル制御"
+ },
+ {
+  "step": "27-2",
+  "title": "ステップ数 設定編",
+  "category": "アイドル制御"
+ },
+ {
+  "step": "27-3",
+  "title": "Stepper アイドル 始動時吸入量制御",
+  "category": "アイドル制御"
+ },
+ {
+  "step": "27-4",
+  "title": "Stepper アイドル 電動ファンON時アイドルアップ",
+  "category": "アイドル制御"
+ },
+ {
+  "step": "27-5",
+  "title": "Stepper アイドル AT アイドルアップ制御",
+  "category": "アイドル制御"
+ },
+ {
+  "step": "29-1",
+  "title": "トラディショナル モード Master fuel 設定",
+  "category": "燃料"
+ },
+ {
+  "step": "29-2",
+  "title": "インジェクター特性設定 無効噴射時間",
+  "category": "燃料"
+ },
+ {
+  "step": "29-3",
+  "title": "純正ECUパルス幅 インジェクター噴射タイミング調査",
+  "category": "燃料"
+ },
+ {
+  "step": "29-4",
+  "title": "インジェクター 出力配線と動作テスト",
+  "category": "燃料"
+ },
+ {
+  "step": "29-5",
+  "title": "インジェクター変更時 の Master fuel 燃料MAP 設定の調整観点",
+  "category": "燃料"
+ },
+ {
+  "step": "30-1",
+  "title": "ECUホールドパワー配線 ソフトウェア設定",
+  "category": "ECUホールドパワー制御"
+ },
+ {
+  "step": "31",
+  "title": "センサ電源 5V 出力置き換え",
+  "category": "5V"
+ },
+ {
+  "step": "32-1",
+  "title": "スターターコントロール",
+  "category": "デジタルIN"
+ },
+ {
+  "step": "32-2",
+  "title": "スターターリレー制御",
+  "category": "AUXOUT"
+ },
+ {
+  "step": "33",
+  "title": "パワーステアリング信号",
+  "category": "デジタルIN"
+ },
+ {
+  "step": "34",
+  "title": "クラッチスイッチインプット",
+  "category": "デジタルIN"
+ },
+ {
+  "step": "35",
+  "title": "パージソレノイド制御",
+  "category": "AUXOUT"
+ },
+ {
+  "step": "36",
+  "title": "可変吸気ソレノイドバルブ",
+  "category": "AUXOUT"
+ }
+]

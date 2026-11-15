@@ -34,6 +34,7 @@ const topMagazines = [...magazineCounts.entries()].sort((a, b) => b[1] - a[1]).s
 
 	<p>
 		<a class="chip" href={`${base}magazines/`}>📚 Magazines ({magazineCounts.size})</a>
+		<a class="chip" href={`${base}steps/`}>🧭 STEP表</a>
 		<a class="chip" href={`${base}articles/`}>📄 Articles ({articles.length})</a>
 		<a class="chip" href={`${base}search/`}>🔍 Search</a>
 		<a class="chip" href={`${base}tools/`}>🛠 Tools</a>
@@ -47,7 +48,8 @@ const topMagazines = [...magazineCounts.entries()].sort((a, b) => b[1] - a[1]).s
 	<h2>最新の記事</h2>
 	<ul>
 		{latest.map((article) => (
-			<li>
+			<li class:list={{ 'has-note': article.data.note_url }}>
+				{article.data.note_url && <a class="note-link" href={article.data.note_url} target="_blank" rel="noopener" title="noteで読む">Note ↗</a>}
 				<a href={`${base}articles/${article.id}/`}>{article.data.title}</a>
 				{article.data.date && <span class="muted"> — {article.data.date.toISOString().slice(0, 10)}</span>}
 			</li>

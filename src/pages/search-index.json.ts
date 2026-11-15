@@ -16,6 +16,7 @@ export const GET: APIRoute = async () => {
 		ecu: article.data.ecu,
 		device: article.data.device ?? '',
 		can_id: article.data.can_id ?? '',
+		note_url: article.data.note_url ?? '',
 	}));
 
 	return new Response(JSON.stringify(index), {

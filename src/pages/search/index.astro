@@ -77,6 +77,7 @@ const topTags = countBy(articles.flatMap((a) => a.data.tags)).slice(0, 40);
 			ecu: string[];
 			device: string;
 			can_id: string;
+			note_url: string;
 		};
 
 		const base = (window as any).__SEARCH_BASE__ as string;
@@ -136,6 +137,17 @@ const topTags = countBy(articles.flatMap((a) => a.data.tags)).slice(0, 40);
 			resultsEl.innerHTML = '';
 			for (const d of filtered.slice(0, 200)) {
 				const li = document.createElement('li');
+				if (d.note_url) {
+					li.className = 'has-note';
+					const n = document.createElement('a');
+					n.className = 'note-link';
+					n.href = d.note_url;
+					n.target = '_blank';
+					n.rel = 'noopener';
+					n.title = 'noteで読む';
+					n.textContent = 'Note ↗';
+					li.appendChild(n);
+				}
 				const a = document.createElement('a');
 				a.href = `${base}articles/${d.id}/`;
 				a.textContent = d.title;
