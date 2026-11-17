@@ -10,6 +10,8 @@ const base = import.meta.env.BASE_URL;
 		インジェクターの流量と Duty から、<b>だいたい何馬力まで燃料を出せるか</b>を求める簡易計算です。
 		考え方は「<a href={`${base}articles/misc-bb3fb4/`}>インジェクタ流量と馬力の関係</a>」の Excel シートと同じです。
 		STEP1 は<b>リターン式</b>（燃圧は一定）、STEP2 は<b>リターンレス</b>（ブーストが上がると燃圧の差が減る）で、STEP2 は STEP1 に補正を1つ足しただけです。
+		リターン式とリターンレスの違いは「<a href={`${base}articles/misc-2668a9/`}>インジェクター燃料圧力制御の基礎</a>」、
+		燃圧と噴射量の関係（流量が差圧の平方根に比例する理由）は「<a href={`${base}articles/misc-26b3d3/`}>燃料圧力と噴射量の関係性</a>」を読んでください。
 	</p>
 
 	<div id="ihp">

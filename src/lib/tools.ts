@@ -46,7 +46,7 @@ export const tools: Tool[] = [
 		slug: 'injectorhp',
 		title: 'インジェクター流量 → 馬力の目安',
 		description: 'インジェクター流量・気筒数・Duty から、だいたいの馬力を求めるツール。STEP1 はリターン式、STEP2 はリターンレス（ブーストで燃圧差が減る分を補正）。',
-		articles: ['misc-bb3fb4', 'sonica-2705aa', 'altoworks-linkecu-e70d48', 'altoworks-59ffdc', 'sonica-c2d14c'],
+		articles: ['misc-bb3fb4', 'misc-2668a9', 'misc-26b3d3', 'sonica-2705aa', 'altoworks-linkecu-e70d48', 'altoworks-59ffdc', 'sonica-c2d14c'],
 	},
 ];
 
