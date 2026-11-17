@@ -42,6 +42,12 @@ export const tools: Tool[] = [
 			'sonica-c2d14c',
 		],
 	},
+	{
+		slug: 'injectorhp',
+		title: 'インジェクター流量 → 馬力の目安',
+		description: 'インジェクター流量・気筒数・Duty から、だいたいの馬力を求めるツール。STEP1 はリターン式、STEP2 はリターンレス（ブーストで燃圧差が減る分を補正）。',
+		articles: ['misc-bb3fb4', 'sonica-2705aa', 'altoworks-linkecu-e70d48', 'altoworks-59ffdc', 'sonica-c2d14c'],
+	},
 ];
 
 export function toolsForArticle(articleId: string): Tool[] {

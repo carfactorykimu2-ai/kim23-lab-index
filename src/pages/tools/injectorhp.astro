@@ -1,0 +1,217 @@
+---
+import Base from '../../layouts/Base.astro';
+
+const base = import.meta.env.BASE_URL;
+---
+<Base title="インジェクター流量 → 馬力の目安" description="インジェクター流量・気筒数・Duty から、燃料系の「だいたいの馬力」を計算するツール。STEP1 はリターン式、STEP2 はリターンレス（ブーストで燃圧差が減る分を補正）。">
+	<p><a href={`${base}tools/`}>&larr; Tools</a></p>
+	<h1>インジェクター流量 → 馬力の目安</h1>
+	<p class="muted">
+		インジェクターの流量と Duty から、<b>だいたい何馬力まで燃料を出せるか</b>を求める簡易計算です。
+		考え方は「<a href={`${base}articles/misc-bb3fb4/`}>インジェクタ流量と馬力の関係</a>」の Excel シートと同じです。
+		STEP1 は<b>リターン式</b>（燃圧は一定）、STEP2 は<b>リターンレス</b>（ブーストが上がると燃圧の差が減る）で、STEP2 は STEP1 に補正を1つ足しただけです。
+	</p>
+
+	<div id="ihp">
+
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab on" id="tab1" role="tab" data-step="1"><b>STEP1</b><span>リターン式</span></button>
+    <button type="button" class="tab" id="tab2" role="tab" data-step="2"><b>STEP2</b><span>リターンレス</span></button>
+  </div>
+
+  <div class="card">
+    <h2>入力</h2>
+    <div class="cols">
+      <div>
+        <div class="row"><label>インジェクター流量 [cc/min]<small>カタログ値（1本あたり）</small></label><input id="injFlow" type="number" value="630" min="0" step="10"></div>
+        <div class="row"><label>気筒数<small>インジェクター本数と同じとみなす</small></label><input id="cyl" type="number" value="6" min="1" max="16" step="1"></div>
+        <div class="row"><label>エンジンタイプ<small>NA は同じ燃料でも馬力が1割ほど出やすい目安</small></label>
+          <select id="type"><option value="TURBO" selected>TURBO（過給）</option><option value="NA">NA（自然吸気）</option></select></div>
+        <div class="row"><label>最大 Duty [%]<small>実用上は80%前後が目安</small></label><input id="duty" type="number" value="80" min="10" max="100" step="5"></div>
+      </div>
+      <div class="s2 hide">
+        <div class="row"><label>基準燃圧 [kPa]<small id="cv-base" class="note"></small><small>インジェクター流量を測った燃圧（大気圧時の燃圧設定）</small></label><input id="baseP" type="number" value="300" min="1" step="5"></div>
+        <div class="row"><label>最大ブースト [kPa]<small id="cv-boost" class="note"></small><small>リターンレスは、ブーストの分だけ燃圧の差が減ります</small></label><input id="boost" type="number" value="100" min="0" step="5"></div>
+        <div class="row"><label>実際の燃圧差 [kPa]<small>基準燃圧 − ブースト</small></label><div id="actualP" class="static">–</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>計算結果</h2>
+    <div class="big">
+      <div class="kpi"><div class="k" id="kLabel">推定 最大馬力</div><div class="v" id="oHp">–<span>HP</span></div><div class="n" id="oHpN"></div></div>
+      <div class="kpi s2 hide"><div class="k">リターン式だったら</div><div class="v" id="oRet">–<span>HP</span></div><div class="n" id="oRetN"></div></div>
+    </div>
+    <div class="msgs" id="msgs"></div>
+
+    <h3>気筒数 × Duty の早見表 <small class="note">単位 HP。いまの設定の行・列に色が付きます</small></h3>
+    <div class="tblwrap"><table id="tbl"></table></div>
+  </div>
+
+  <div class="card s2 hide">
+    <h2>ブーストが上がると、どれだけ減るか（リターンレス）</h2>
+    <p class="note" style="margin:-6px 0 6px">いまの流量・気筒数・Duty・基準燃圧のままで、最大ブーストだけを変えた場合です。リターン式なら、どのブーストでも「リターン式だったら」の値のままです。</p>
+    <div class="tblwrap"><table id="tblB"></table></div>
+  </div>
+
+  <div class="card caution-card">
+    <h2>注意</h2>
+    <ul>
+      <li class="caution">注意：これは「インジェクターが出せる燃料量」だけの目安です。<b>燃料ポンプの能力は入っていません</b>。ポンプが先に限界になることも多いので、ポンプ側は「<a href={`${base}tools/fuelpump/`}>燃料ポンプ LO/HI 切替計算</a>」や実測で確認してください。</li>
+      <li class="caution">注意：無効噴射時間・目標空燃比・燃料の種類（E85 など）は考えていません。馬力は「流量 ÷ 6」という経験則の目安で、±1〜2割はずれると思ってください。</li>
+    </ul>
+  </div>
+
+  <div class="card formula">
+    <h2>計算式</h2>
+    <p class="note" style="margin:-4px 0 8px">【 】は入力欄の名前です。</p>
+    <ol>
+      <li><b>STEP1：リターン式</b><br>
+        <code>馬力 ≒ 【インジェクター流量】 × 【気筒数】 ÷ 6 × 【Duty】÷100 × 係数</code><br>
+        係数は ターボ＝1、NA＝1.1。例：630cc × 6気筒 × 100% ＝ 630HP、80% なら 504HP。<br>
+        リターン式（ブースト連動レギュレーター）は、ブーストが上がっても燃圧がそのぶん上がり、インジェクターの前後の差圧が変わりません。そのため燃圧の補正はいりません。</li>
+      <li class="s2 hide"><b>STEP2：リターンレス</b><br>
+        <code>実際の燃圧差 ＝ 【基準燃圧】 − 【最大ブースト】</code><br>
+        <code>補正 ＝ √(実際の燃圧差 ÷ 【基準燃圧】)</code><br>
+        <code>馬力 ≒ STEP1 の式 × 補正</code><br>
+        リターンレスは燃圧が一定なので、ブーストがかかるとインジェクターの前後の差圧が減り、同じ Duty でも流量が減ります。流量は差圧の平方根に比例します。例：基準 300kPa・ブースト 100kPa なら √(200÷300) ≒ 0.82 倍。</li>
+    </ol>
+  </div>
+</div>
+
+	<script is:inline>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var num=function(id){var v=parseFloat($(id).value);return isFinite(v)?v:0;};
+  var f=function(v,d){if(!isFinite(v))return '–';return v.toLocaleString('ja-JP',{minimumFractionDigits:d||0,maximumFractionDigits:d||0});};
+  var KGF=98.0665;
+  var step=1;
+
+  function hp(cc,n,duty,factor,k){return cc*n/6*duty/100*factor*k;}
+  function factorOf(dP,base){return (base>0&&dP>0)?Math.sqrt(dP/base):0;}
+
+  function setStep(s){
+    step=s;
+    $('tab1').className='tab'+(s===1?' on':''); $('tab2').className='tab'+(s===2?' on':'');
+    $('tab1').setAttribute('aria-selected',s===1); $('tab2').setAttribute('aria-selected',s===2);
+    document.querySelectorAll('#ihp .s2').forEach(function(el){el.classList.toggle('hide',s!==2);});
+    try{history.replaceState(null,'','#step'+s);}catch(e){}
+    calc();
+  }
+  $('tab1').addEventListener('click',function(){setStep(1);});
+  $('tab2').addEventListener('click',function(){setStep(2);});
+
+  function uniqSorted(arr,desc){
+    var s=arr.filter(function(v,i){return arr.indexOf(v)===i;}).sort(function(a,b){return a-b;});
+    return desc?s.reverse():s;
+  }
+
+  function calc(){
+    var cc=num('injFlow'), n=Math.max(1,Math.round(num('cyl'))), duty=num('duty'), k=$('type').value==='NA'?1.1:1;
+    var base=num('baseP'), boost=num('boost');
+    var dP=base-boost, fac=1;
+    var hpRet=hp(cc,n,duty,1,k);
+    if(step===2){
+      fac=factorOf(dP,base);
+      $('actualP').textContent=f(dP)+' kPa';
+      $('cv-base').textContent='≈ '+f(base/KGF,2)+' kgf/cm²';
+      $('cv-boost').textContent='≈ '+f(boost/KGF,2)+' kgf/cm²';
+    }
+    var h=hp(cc,n,duty,fac,k);
+
+    $('kLabel').textContent=step===1?'推定 最大馬力（リターン式）':'推定 最大馬力（リターンレス）';
+    $('oHp').innerHTML=f(h,0)+'<span>HP</span>';
+    $('oHpN').textContent=f(cc)+' cc/min × '+n+' 気筒 ÷ 6 × Duty '+f(duty)+'%'+(k!==1?' × 1.1（NA）':'')+(step===2?' × 補正 '+f(fac,2):'');
+    if(step===2){
+      $('oRet').innerHTML=f(hpRet,0)+'<span>HP</span>';
+      $('oRetN').textContent=hpRet>0?('リターンレスだと '+f((h-hpRet)/hpRet*100,0)+'%（'+f(h-hpRet,0)+' HP）'):'';
+    }
+
+    var msgs=[];
+    if(step===2&&dP<=0)msgs.push(['ng','ブーストが基準燃圧以上です。燃圧の差がゼロ以下なので、燃料が出ません（0HP）。']);
+    else if(step===2&&fac<0.8)msgs.push(['warn','補正が0.8倍を下回っています。燃圧を上げる（高圧ポンプ・高めの基準燃圧）か、大きいインジェクターが必要かもしれません。']);
+    if(duty>85)msgs.push(['warn','Duty が85%を超えています。燃料の出方が安定しにくいので、80%前後を目安にしてください。']);
+    $('msgs').innerHTML=msgs.map(function(m){return '<div class="m-'+m[0]+'">'+m[1]+'</div>';}).join('');
+
+    // 早見表：気筒数 × Duty
+    var cyls=uniqSorted([3,4,6,8,n],true), duties=uniqSorted([100,90,80,70,60,50,Math.round(duty)],true);
+    var t='<tr><th>Duty ＼ 気筒数</th>'+cyls.map(function(c){return '<th class="r'+(c===n?' hl':'')+'">'+c+'</th>';}).join('')+'</tr>';
+    duties.forEach(function(d){
+      t+='<tr class="'+(d===Math.round(duty)?'hlrow':'')+'"><th>'+d+'%</th>'+cyls.map(function(c){
+        return '<td class="r'+(c===n&&d===Math.round(duty)?' cur':(c===n?' hl':''))+'">'+f(hp(cc,c,d,fac,k),0)+'</td>';
+      }).join('')+'</tr>';
+    });
+    $('tbl').innerHTML=t;
+
+    // ブースト別（STEP2）
+    if(step===2){
+      var bs=uniqSorted([0,50,100,150,200,250,Math.round(boost)],false), b='<tr><th>最大ブースト</th><th class="r">燃圧差</th><th class="r">補正</th><th class="r">リターンレス</th><th class="r">リターン式</th></tr>';
+      bs.forEach(function(bv){
+        var d=base-bv, fc=factorOf(d,base), hv=hp(cc,n,duty,fc,k), cur=(bv===Math.round(boost));
+        b+='<tr class="'+(cur?'hlrow':'')+'"><th>'+f(bv)+' kPa</th><td class="r">'+f(Math.max(0,d))+' kPa</td><td class="r">×'+f(fc,2)+'</td><td class="r'+(cur?' cur':'')+'">'+f(hv,0)+'</td><td class="r">'+f(hpRet,0)+'</td></tr>';
+      });
+      $('tblB').innerHTML=b;
+    }
+  }
+
+  document.querySelectorAll('#ihp input,#ihp select').forEach(function(el){el.addEventListener('input',calc);el.addEventListener('change',calc);});
+  setStep(location.hash==='#step2'?2:1);
+})();
+</script>
+</Base>
+
+<style is:global>
+#ihp{
+  --card:var(--bg);--ink:var(--fg);--sub:var(--muted);--line:var(--border);--field:var(--chip-bg);--acc:var(--accent);
+  --ok:#1a7f37;--warn:#b26b00;--ng:#cf222e;--cur:rgba(31,111,235,.16);
+  line-height:1.65;font-size:1rem;
+}
+@media (prefers-color-scheme:dark){#ihp{--ok:#3fb950;--warn:#d29922;--ng:#f85149;--cur:rgba(88,166,255,.22);}}
+#ihp *{box-sizing:border-box}
+#ihp h2{font-size:1.15em;margin:0 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+#ihp h3{font-size:.95em;margin:16px 0 6px;color:var(--sub)}
+#ihp .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-top:14px}
+#ihp .tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+#ihp .tab{font:inherit;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;text-align:left;display:flex;flex-direction:column;line-height:1.35}
+#ihp .tab b{font-size:.85em;color:var(--sub);letter-spacing:.04em}
+#ihp .tab span{font-size:1.05em;font-weight:600}
+#ihp .tab.on{border-color:var(--acc);outline:2px solid var(--acc);outline-offset:-2px}
+#ihp .tab.on b{color:var(--acc)}
+#ihp .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0 28px}
+#ihp .row{display:grid;grid-template-columns:1fr 150px;align-items:center;gap:8px;margin:7px 0}
+#ihp .row small{display:block;color:var(--sub);font-size:.84em;line-height:1.35;margin-top:2px}
+#ihp .row .static{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+#ihp input,#ihp select{width:100%;padding:7px 9px;font-size:1em;border:1px solid var(--line);border-radius:6px;background:var(--field);color:var(--ink);font-family:inherit}
+#ihp input{text-align:right}
+#ihp select{font-size:.9em;padding-left:6px;padding-right:2px}
+#ihp input:focus,#ihp select:focus{outline:2px solid var(--acc);outline-offset:-1px}
+#ihp .hide{display:none}
+#ihp .big{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-bottom:10px}
+#ihp .kpi{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--field)}
+#ihp .kpi .k{font-size:.92em;color:var(--sub)}
+#ihp .kpi .v{font-size:2.1em;font-weight:700;font-variant-numeric:tabular-nums}
+#ihp .kpi .v span{font-size:.5em;font-weight:500;margin-left:4px}
+#ihp .kpi .n{font-size:.88em;color:var(--sub)}
+#ihp .msgs div{padding:8px 10px;border-radius:6px;margin:6px 0;font-size:.95em;border-left:4px solid}
+#ihp .m-warn{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 10%,transparent)}
+#ihp .m-ng{border-color:var(--ng);background:color-mix(in srgb,var(--ng) 10%,transparent)}
+#ihp .tblwrap{overflow-x:auto}
+#ihp table{width:100%;border-collapse:collapse;font-size:.95em;font-variant-numeric:tabular-nums}
+#ihp th,#ihp td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;font-weight:400}
+#ihp th{color:var(--sub);white-space:nowrap}
+#ihp th.r,#ihp td.r{text-align:right}
+#ihp tr.hlrow{background:var(--cur)}
+#ihp td.hl,#ihp th.hl{background:var(--cur)}
+#ihp td.cur{font-weight:700;outline:2px solid var(--acc);outline-offset:-2px}
+#ihp .formula{font-size:.95em}
+#ihp .formula code{background:var(--field);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:.9em}
+#ihp .formula li{margin:8px 0}
+#ihp .caution{color:var(--ng);font-weight:600}
+#ihp .caution-card{border-color:var(--ng)}
+#ihp .caution-card h2{color:var(--ng);border-bottom-color:color-mix(in srgb,var(--ng) 35%,transparent)}
+#ihp .caution-card ul{margin:0;padding-left:1.2em}
+#ihp .caution-card li{margin:6px 0;font-size:.95em}
+#ihp .note{color:var(--sub);font-size:.84em;font-weight:400}
+@media (max-width:480px){#ihp .row{grid-template-columns:1fr 120px}#ihp .kpi .v{font-size:1.8em}}
+</style>
